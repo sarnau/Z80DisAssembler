@@ -7,7 +7,7 @@ Z80 Disassembler
 
 I created this small disassembler for a Z80 cpu at one afternoon. It is a commandline tool. The size of the ROM and entry points have to be coded directly in the sourcecode.
 
-Every ANSI C compiler should compile this program. It is tested with Think C 5.0 on a Macintosh. It only uses come ANSI functions (look into ''main()'') for loading a file called "EPROM".
+Every ANSI C compiler should compile this program. It is tested with Think C 5.0 on a Macintosh. It only uses some ANSI functions (look into ''main()'') for loading a file called "EPROM".
 
 The program has two parts:
 
