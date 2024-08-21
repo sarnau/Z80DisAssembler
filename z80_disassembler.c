@@ -476,7 +476,7 @@ CHAR            ireg[3];        // temp.Indexregister
         }
         break;
     case 0x40:                          // LD   d,s
-        if(d == e) {
+        if(a == 0x76) {
             strcpy(s,"HALT");
         } else {
             strcpy(s,"LD\t\t");
