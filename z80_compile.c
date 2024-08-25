@@ -739,7 +739,7 @@ RecalcListP op1Recalc,op2Recalc;
                                 }
                                 *iRAM++ = value2;
                                 *iRAM++ = value2 >> 8;
-                            } else
+                             } else if (op2 != 0x312 && op2 != 0x330 && op2 != 0x331)
                                 Error("2.Operand fehlerhaft");
                             break;
                     case 0x330: // IX
