@@ -161,6 +161,11 @@ TokenTable  *t;
     }
 }
 
+int isalnum_(CHAR c)
+{
+    return isalnum(c) || c == '_';
+}
+
 /***
  *  eine Zeile tokenisieren
  ***/
@@ -171,6 +176,7 @@ CHAR        c;
 CHAR        stemp[MAXLINELENGTH];
 CHAR        maxc;
 WORD        base;
+WORD        dollar;
 Type        typ;
 LONG        val;
 CHAR        AktUpLine[MAXLINELENGTH];
@@ -185,13 +191,25 @@ CommandP    cp = Cmd;               // Ptr auf den Command-Buffer
         if(c == ';') break;         // ab hier: ein Kommentar => fertig
         if(c == 0) break;           // Zeilenende => fertig
         typ = ILLEGAL;              // kein gültiger Typ
-        if(isalnum(c)) {            // A…Z, a…z, 0-9
+        dollar = 0;
+        if (c == '$') {             // PC oder start einer Hex-Zahl
+            if (isalnum(*sp) && *sp <= 'F') {
+                base = 16;
+                c = *sp++;
+            } else {
+                dollar = 1;
+            }
+        }
+        if (dollar) {
+            typ = NUM;
+            val = PC;
+        } else if(isalnum_(c)) {    // A…Z, a…z, 0-9
             sp2 = stemp;            // Ptr auf den Anfang
             maxc = 0;               // maximales Zeichen
             base = 0;               // ein String
             do {
                 *sp2++ = c;
-                if(isalnum(*sp)) {  // noch nicht das letzte Zeichen?
+                if(isalnum_(*sp)) {  // noch nicht das letzte Zeichen?
                     if(c > maxc)
                         maxc = c;   // maximales Zeichen merken
                 } else {            // letztes Zeichen!
@@ -204,7 +222,7 @@ CommandP    cp = Cmd;               // Ptr auf den Command-Buffer
                     if(c >= '0' && c <= '9') if(maxc <= '9') base = 10;
                 }
                 c = *sp++;          // Folgezeichen holen
-            } while(isalnum(c));
+            } while(isalnum_(c));
             sp--;
             *sp2 = 0;
             if(base > 0) {                  // eine gültige Zahl?
