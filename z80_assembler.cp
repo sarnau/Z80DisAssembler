@@ -6,64 +6,58 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
-#if __option(profile)
-#include <profile.h>
-#endif
-#include "Z80 Assembler.h"
+#include "z80_assembler.h"
 
-UWORD       PC;         // aktuelle Adresse
-UBYTE       *RAM;       // RAM vom Z80
-ULONG       LineNo;     // aktuelle Zeilennummer
-CHAR        LineBuf[MAXLINELENGTH]; // Buffer für eine eingelesene ASCII-Zeile
+uint16_t    PC;         // aktuelle Adresse
+uint8_t     *RAM;       // RAM vom Z80
+long        LineNo;     // aktuelle Zeilennummer
+char        LineBuf[MAXLINELENGTH]; // Buffer für eine eingelesene ASCII-Zeile
 
 /***
  *  Fehlermeldung ausgeben
  ***/
-VOID        Error(STR s)
+void        Error(const char* s)
 {
-STR     p;
+const char *p;
 
     printf("Fehler in Zeile %ld: %s\n",LineNo,s);   // Fehlermeldung ausgeben
-    for(p = LineBuf;isspace(*p);p++); puts(p);      // Zeile ausgeben
+    for(p = LineBuf;isspace(*p);p++)
+    	;
+    puts(p);      									// Zeile ausgeben
     exit(1);
 }
 
 /***
  *  …
  ***/
-VOID        main(VOID)
+int        main(void)
 {
-FILE    *f;
-STR     s;
-LONG    i,j;
-UWORD   savePC;
-UCHAR   EPROM[0x2000];
-ULONG   ticks;
-
-#if __option(profile)
-    InitProfile(400,200);
-    freopen("Profiler Report","w", stdout);
-#endif
+FILE     *f;
+char*    s;
+int32_t  i,j;
+uint16_t savePC;
+uint8_t  EPROM[0x2000];
 
     LineNo = 1;
     InitSymTab();                       // Symboltabelle initialisieren
 
-    RAM = malloc(65536);
+    RAM = (uint8_t*)malloc(65536);
     memset(RAM,0xFF,65536);             // 64K RAM löschen
     PC = 0;                             // Startadresse des Codes
 
     puts("TurboAss Z80 - ein kleiner 1-Pass-Assembler für Z80 Programmcode");
-    puts("©1992/3 ∑-Soft, Markus Fritze");
+    puts("(c)1992/3 Sigma-Soft, Markus Fritze");
     puts("");
 
-    ticks = TickCount();
-    f = fopen("Futura.src","r");
-    if(!f) return;
+    f = fopen("FuturaFirmware.asm","r");
+    if(!f) {
+    	Error("File 'FuturaFirmware.asm' not found!");
+    }
     while(1) {
         s = fgets(LineBuf,sizeof(LineBuf),f);   // eine Zeile einlesen
         if(!s) break;                   // Sourcetext-Ende => raus
         *(s + strlen(s) - 1) = 0;       // CR am Zeilenende entfernen
-//      puts(s);
+//	    puts(s);
         TokenizeLine(s);                // Zeile tokenisieren
         savePC = PC;
         CompileLine();                  // Zeile übersetzen
@@ -78,8 +72,6 @@ ULONG   ticks;
         LineNo++;                       // nächste Zeile
     }
     fclose(f);
-    ticks = TickCount() - ticks;
-    printf("%.3fs für %ld Zeilen = %ld Zeilen/min\n",(float)ticks/60.0,LineNo,3600*LineNo/ticks);
 
 //  puts("undefinierte Symbole ausgeben");
     for(i=0;i<256;i++) {                // Symboltabelle durchgehen
@@ -89,31 +81,30 @@ ULONG   ticks;
                 printf("Symbol \"%s\" undefiniert!\n",s->name);
     }
 
-//  puts("Original-EPROM einlesen");
+#if 0
+    puts("Original-EPROM einlesen");
     f = fopen("EPROM","rb");
     if(!f) exit(1);
-    fread(EPROM,sizeof(UCHAR),0x2000,f);// 8K EPROM einlesen
+    fread(EPROM,sizeof(uint8_t),0x2000,f);// 8K EPROM einlesen
     fclose(f);
 
-#if 1
-//  puts("Programmcode mit dem Original vergleichen");
+    puts("Programmcode mit dem Original vergleichen");
     j = 0;                          // und vergleichen…
     for(i=0;(i<0x2000)&&(j < 10);i++)
         if(RAM[i] != EPROM[i]) {
-            printf("%4.4X : %2.2X != %2.2X\n",(UWORD)i,RAM[i],EPROM[i]);
+            printf("%4.4X : %2.2X != %2.2X\n",(uint16_t)i,RAM[i],EPROM[i]);
             j++;
         }
     if(!j)
         puts("Programmcode stimmt mit dem Original-EPROM überein!");
     else
-#endif
     {
         puts("Prüfsumme neu berechnen");
         j = 0;
         for(i=0;i<0x1FF0;i++)
-            j += (UBYTE)RAM[i];
+            j += (uint8_t)RAM[i];
         {
-        SymbolP     FindSymbol(STR name);
+        SymbolP     FindSymbol(const char* name);
         SymbolP s = FindSymbol("ROMCHECKSUM");
             if(s) {
                 RAM[s->val] = j;
@@ -123,12 +114,12 @@ ULONG   ticks;
                 puts("ROMChecksum nicht gefunden!");
         }
     }
+#endif
 
     f = fopen("Z80.code","wb");
     if(!f) exit(1);
-    fwrite(RAM,sizeof(UCHAR),0x2000,f); // kompiliertes Programm wegschreiben
+    fwrite(RAM,sizeof(uint8_t),0x2000,f); // kompiliertes Programm wegschreiben
     fclose(f);
-#if __option(profile)
-    DumpProfile();
-#endif
+
+	return 0;
 }

@@ -4,21 +4,21 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include "Z80 Assembler.h"
+#include "z80_assembler.h"
 
-VOID            DoPseudo(CommandP *cp);
-VOID            DoOpcode(CommandP *cp);
-WORD            GetOperand(CommandP *cp,LONG *value);
+void            DoPseudo(CommandP *cp);
+void            DoOpcode(CommandP *cp);
+int16_t         GetOperand(CommandP *cp,int32_t *value);
 
 /***
  *  Operanden holen
  ***/
-WORD            GetOperand(CommandP *c,LONG *value)
+int16_t GetOperand(CommandP *c,int32_t *value)
 {
-WORD        typ;
-WORD        val,sval;
+int16_t  typ;
+int16_t  val,sval;
 
-    LastRecalc = nil;   // (sicher ist sicher: Recalc-Eintrag löschen)
+    LastRecalc = nullptr; // (sicher ist sicher: Recalc-Eintrag löschen)
     *value = 0;
     typ = (*c)->typ;val = (*c)++->val;                      // Wert und Typ holen
     if(typ == OPCODE) {
@@ -31,7 +31,7 @@ WORD        val,sval;
         }
         if((val >= 0x100)&&(val <= 0x2FF))                  // ein Opcode!
             Error("Illegaler Operand!");
-        if((val == '('))    {                               // Indirekte Adreßierung?
+        if((val == '(') != 0) {                             // Indirekte Adreßierung?
             typ = (*c)->typ;sval = (*c)++->val;             // Wert und Typ holen
             if(typ == OPCODE) {
                 if(((sval & 0xFF0) == 0x310)||(sval == 0x301)) {// Register
@@ -79,14 +79,14 @@ WORD        val,sval;
 /***
  *  Opcode abtesten
  ***/
-VOID            DoOpcode(CommandP *cp)
+void            DoOpcode(CommandP *cp)
 {
 CommandP    c = *cp;
-UCHAR       *iRAM = RAM + PC;
-ULONG       op0;
-UBYTE       Op0_24,Op0_16;
-WORD        op1,op2;
-LONG        value1,value2;
+uint8_t     *iRAM = RAM + PC;
+uint32_t    op0;
+uint8_t     Op0_24,Op0_16;
+int16_t     op1,op2;
+int32_t     value1,value2;
 RecalcListP op1Recalc,op2Recalc;
 
     op0 = c++->val;                             // Opcode
@@ -105,10 +105,11 @@ RecalcListP op1Recalc,op2Recalc;
     switch(op0 & 0xFF) {        // Opcode
     case 0x00:                              // IN/OUT
                 if(Op0_24 & 0x01) {         // OUT?
-                    LONG    t;
+                    int32_t t;
+                    RecalcListP tr;
                     t = op1; op1 = op2; op2 = t;                // Operanden drehen
                     t = value1; value1 = value2; value2 = t;
-                    t = (LONG)op1Recalc; op1Recalc = op2Recalc; op2Recalc = (RecalcListP)t;
+                    tr = op1Recalc; op1Recalc = op2Recalc; op2Recalc = tr;
                 }
                 if(((op1 & 0xFF0)== 0x300)&&(op2 == 0x501)) {   // IN ?,(C) bzw. OUT (C),?
                     if(op1 == 0x306)
@@ -122,7 +123,7 @@ RecalcListP op1Recalc,op2Recalc;
                     if(op2Recalc) {         // Ausdruck undefiniert?
                         op2Recalc->typ = 0; // ein Byte einsetzen
                         op2Recalc->adr = iRAM - RAM;
-                        op2Recalc = nil;    // Term eingesetzt
+                        op2Recalc = nullptr; // Term eingesetzt
                     }
                     *iRAM++ = value2;
                 } else
@@ -162,7 +163,7 @@ RecalcListP op1Recalc,op2Recalc;
                         if(op2Recalc) {         // Ausdruck undefiniert?
                             op2Recalc->typ = 0; // ein Byte einsetzen
                             op2Recalc->adr = iRAM - RAM;
-                            op2Recalc = nil;    // Term eingesetzt
+                            op2Recalc = nullptr; // Term eingesetzt
                         }
                         *iRAM++ = value2;
                         *iRAM++ = Op0_16|(value1 << 3)|6;
@@ -238,7 +239,7 @@ RecalcListP op1Recalc,op2Recalc;
                         op1 = op2;
                         value1 = value2;        // 2. Operanden nach vorne schieben
                         op1Recalc = op2Recalc;
-                        op2Recalc = nil;
+                        op2Recalc = nullptr;
                     }
                     switch(op1 & 0xFF0) {
                     case 0x350: // X,HX
@@ -258,7 +259,7 @@ RecalcListP op1Recalc,op2Recalc;
                                 if(op1Recalc) {         // Ausdruck undefiniert?
                                     op1Recalc->typ = 0; // ein Byte einsetzen
                                     op1Recalc->adr = iRAM - RAM;
-                                    op1Recalc = nil;    // Term eingesetzt
+                                    op1Recalc = nullptr; // Term eingesetzt
                                 }
                                 *iRAM++ = value1;
                                 break;
@@ -268,7 +269,7 @@ RecalcListP op1Recalc,op2Recalc;
                                     if(op1Recalc) {         // Ausdruck undefiniert?
                                         op1Recalc->typ = 0; // ein Byte einsetzen
                                         op1Recalc->adr = iRAM - RAM;
-                                        op1Recalc = nil;    // Term eingesetzt
+                                        op1Recalc = nullptr; // Term eingesetzt
                                     }
                                     *iRAM++ = value1;
                                     break;
@@ -289,11 +290,11 @@ RecalcListP op1Recalc,op2Recalc;
                     if(op1Recalc) {         // Ausdruck undefiniert?
                         op1Recalc->typ = 0; // ein Byte einsetzen
                         op1Recalc->adr = iRAM - RAM;
-                        op1Recalc = nil;    // Term eingesetzt
+                        op1Recalc = nullptr; // Term eingesetzt
                     }
                     *iRAM++ = value1;
                 } else {
-                    Boolean     decFlag = Op0_24 & 1;   // True: DEC, False: INC
+                    bool     decFlag = Op0_24 & 1;   // True: DEC, False: INC
                     switch(op1) {
                     case 0x354: // HX
                             *iRAM++ = 0xDD;
@@ -345,7 +346,7 @@ RecalcListP op1Recalc,op2Recalc;
                             if(op2Recalc) {         // Ausdruck undefiniert?
                                 op2Recalc->typ = 1; // zwei Byte einsetzen
                                 op2Recalc->adr = iRAM - RAM;
-                                op2Recalc = nil;    // Term eingesetzt
+                                op2Recalc = nullptr; // Term eingesetzt
                             }
                             *iRAM++ = value2;
                             *iRAM++ = value2 >> 8;
@@ -362,7 +363,7 @@ RecalcListP op1Recalc,op2Recalc;
                             if(op1Recalc) {         // Ausdruck undefiniert?
                                 op1Recalc->typ = 1; // zwei Byte einsetzen
                                 op1Recalc->adr = iRAM - RAM;
-                                op1Recalc = nil;    // Term eingesetzt
+                                op1Recalc = nullptr; // Term eingesetzt
                             }
                             *iRAM++ = value1;
                             *iRAM++ = value1 >> 8;
@@ -375,17 +376,23 @@ RecalcListP op1Recalc,op2Recalc;
                             if(op2Recalc) {         // Ausdruck undefiniert?
                                 op2Recalc->typ = 2; // ein PC-rel-Byte einsetzen
                                 op2Recalc->adr = iRAM - RAM;
-                                op2Recalc = nil;    // Term eingesetzt
+                                op2Recalc = nullptr; // Term eingesetzt
                             }
-                            *iRAM++ = value2 - (iRAM - RAM) - 1;
+                            {
+                            uint8_t b = value2 - (iRAM - RAM) - 1;
+                            *iRAM++ = b;
+                            }
                         } else if((op1 == 0x281)&&!op2) {   //  JR Adr
                             *iRAM++ = Op0_16;
                             if(op1Recalc) {         // Ausdruck undefiniert?
                                 op1Recalc->typ = 2; // ein PC-rel-Byte einsetzen
                                 op1Recalc->adr = iRAM - RAM;
-                                op1Recalc = nil;    // Term eingesetzt
+                                op1Recalc = nullptr; // Term eingesetzt
                             }
-                            *iRAM++ = value1 - (iRAM - RAM) - 1;
+                            {
+                            uint8_t b = value1 - (iRAM - RAM) - 1;
+                            *iRAM++ = b;
+                            }
                         } else
                             Error("Bedingung nicht erlaubt!");
                         break;
@@ -395,7 +402,7 @@ RecalcListP op1Recalc,op2Recalc;
                             if(op2Recalc) {         // Ausdruck undefiniert?
                                 op2Recalc->typ = 1; // zwei Byte einsetzen
                                 op2Recalc->adr = iRAM - RAM;
-                                op2Recalc = nil;    // Term eingesetzt
+                                op2Recalc = nullptr; // Term eingesetzt
                             }
                             *iRAM++ = value2;
                             *iRAM++ = value2 >> 8;
@@ -404,7 +411,7 @@ RecalcListP op1Recalc,op2Recalc;
                             if(op1Recalc) {         // Ausdruck undefiniert?
                                 op1Recalc->typ = 1; // zwei Byte einsetzen
                                 op1Recalc->adr = iRAM - RAM;
-                                op1Recalc = nil;    // Term eingesetzt
+                                op1Recalc = nullptr; // Term eingesetzt
                             }
                             *iRAM++ = value1;
                             *iRAM++ = value1 >> 8;
@@ -431,7 +438,7 @@ RecalcListP op1Recalc,op2Recalc;
                 if(op2)
                     Error("zu viele Operanden");
                 else if(op1 == 0x281) {     // n
-                    WORD    i = -1;
+                    int16_t i = -1;
                     switch(value1) {
                     case 0: i = 0x00;
                             break;
@@ -469,9 +476,12 @@ RecalcListP op1Recalc,op2Recalc;
                 if(op1Recalc) {         // Ausdruck undefiniert?
                     op1Recalc->typ = 2; // ein PC-rel-Byte einsetzen
                     op1Recalc->adr = iRAM - RAM;
-                    op1Recalc = nil;    // Term eingesetzt
+                    op1Recalc = nullptr; // Term eingesetzt
                 }
-                *iRAM++ = value1 - (iRAM - RAM) - 1;        // relozieren
+                {
+                uint8_t b = value1 - (iRAM - RAM) - 1;
+                *iRAM++ = b;             // relozieren
+                }
                 break;
     case 0x0C:  // EX: (SP),dreg oder DE,HL oder AF,AF'
                 if((op1 == 0x311)&&(op2 == 0x312))      // EX DE,HL
@@ -496,7 +506,7 @@ RecalcListP op1Recalc,op2Recalc;
                 if(!(op1 & op2))
                     Error("Operand fehlt!");
                 else {
-                    UBYTE   FirstByte = 0;
+                    uint8_t FirstByte = 0;
                     switch(op1) {
                     case 0x530: // LD (IX),
                     case 0x531: // LD (IY),
@@ -522,7 +532,7 @@ RecalcListP op1Recalc,op2Recalc;
                             case 0x350:     // X,HX
                             case 0x360:     // Y,HY
                                     {
-                                    Boolean flag = ((op2 & 0xFF0)==0x350);
+                                    bool flag = ((op2 & 0xFF0)==0x350);
                                     switch(FirstByte) {
                                     case 0xDD:  // IX
                                             if(!flag)
@@ -559,7 +569,7 @@ RecalcListP op1Recalc,op2Recalc;
                                         if(op2Recalc) {         // Ausdruck undefiniert?
                                             op2Recalc->typ = 0; // ein Byte einsetzen
                                             op2Recalc->adr = iRAM - RAM;
-                                            op2Recalc = nil;    // Term eingesetzt
+                                            op2Recalc = nullptr; // Term eingesetzt
                                         }
                                         *iRAM++ = value2;
                                     } else
@@ -571,7 +581,7 @@ RecalcListP op1Recalc,op2Recalc;
                                         if(op2Recalc) {         // Ausdruck undefiniert?
                                             op2Recalc->typ = 0; // ein Byte einsetzen
                                             op2Recalc->adr = iRAM - RAM;
-                                            op2Recalc = nil;    // Term eingesetzt
+                                            op2Recalc = nullptr; // Term eingesetzt
                                         }
                                         *iRAM++ = value2;
                                     } else {
@@ -580,7 +590,7 @@ RecalcListP op1Recalc,op2Recalc;
                                             if(op2Recalc) {         // Ausdruck undefiniert?
                                                 op2Recalc->typ = 1; // zwei Byte einsetzen
                                                 op2Recalc->adr = iRAM - RAM;
-                                                op2Recalc = nil;    // Term eingesetzt
+                                                op2Recalc = nullptr; // Term eingesetzt
                                             }
                                             *iRAM++ = value2;
                                             *iRAM++ = value2 >> 8;
@@ -629,7 +639,7 @@ RecalcListP op1Recalc,op2Recalc;
                                 if(op1Recalc) {         // Ausdruck undefiniert?
                                     op1Recalc->typ = 0; // ein Byte einsetzen
                                     op1Recalc->adr = iRAM - RAM;
-                                    op1Recalc = nil;    // Term eingesetzt
+                                    op1Recalc = nullptr; // Term eingesetzt
                                 }
                                 *iRAM++ = value1;
                                 break;
@@ -639,13 +649,13 @@ RecalcListP op1Recalc,op2Recalc;
                                 if(op1Recalc) {         // Ausdruck undefiniert?
                                     op1Recalc->typ = 0; // ein Byte einsetzen
                                     op1Recalc->adr = iRAM - RAM;
-                                    op1Recalc = nil;    // Term eingesetzt
+                                    op1Recalc = nullptr; // Term eingesetzt
                                 }
                                 *iRAM++ = value1;
                                 if(op2Recalc) {         // Ausdruck undefiniert?
                                     op2Recalc->typ = 0; // ein Byte einsetzen
                                     op2Recalc->adr = iRAM - RAM;
-                                    op2Recalc = nil;    // Term eingesetzt
+                                    op2Recalc = nullptr; // Term eingesetzt
                                 }
                                 *iRAM++ = value2;
                                 break;
@@ -660,7 +670,7 @@ RecalcListP op1Recalc,op2Recalc;
                                 if(op1Recalc) {         // Ausdruck undefiniert?
                                     op1Recalc->typ = 1; // zwei Byte einsetzen
                                     op1Recalc->adr = iRAM - RAM;
-                                    op1Recalc = nil;    // Term eingesetzt
+                                    op1Recalc = nullptr; // Term eingesetzt
                                 }
                                 *iRAM++ = value1;
                                 *iRAM++ = value1 >> 8;
@@ -670,7 +680,7 @@ RecalcListP op1Recalc,op2Recalc;
                                 if(op1Recalc) {         // Ausdruck undefiniert?
                                     op1Recalc->typ = 1; // zwei Byte einsetzen
                                     op1Recalc->adr = iRAM - RAM;
-                                    op1Recalc = nil;    // Term eingesetzt
+                                    op1Recalc = nullptr; // Term eingesetzt
                                 }
                                 *iRAM++ = value1;
                                 *iRAM++ = value1 >> 8;
@@ -683,7 +693,7 @@ RecalcListP op1Recalc,op2Recalc;
                                 if(op1Recalc) {         // Ausdruck undefiniert?
                                     op1Recalc->typ = 1; // zwei Byte einsetzen
                                     op1Recalc->adr = iRAM - RAM;
-                                    op1Recalc = nil;    // Term eingesetzt
+                                    op1Recalc = nullptr; // Term eingesetzt
                                 }
                                 *iRAM++ = value1;
                                 *iRAM++ = value1 >> 8;
@@ -695,7 +705,7 @@ RecalcListP op1Recalc,op2Recalc;
                                 if(op1Recalc) {         // Ausdruck undefiniert?
                                     op1Recalc->typ = 1; // zwei Byte einsetzen
                                     op1Recalc->adr = iRAM - RAM;
-                                    op1Recalc = nil;    // Term eingesetzt
+                                    op1Recalc = nullptr; // Term eingesetzt
                                 }
                                 *iRAM++ = value1;
                                 *iRAM++ = value1 >> 8;
@@ -735,7 +745,7 @@ RecalcListP op1Recalc,op2Recalc;
                                 if(op2Recalc) {         // Ausdruck undefiniert?
                                     op2Recalc->typ = 1; // zwei Byte einsetzen
                                     op2Recalc->adr = iRAM - RAM;
-                                    op2Recalc = nil;    // Term eingesetzt
+                                    op2Recalc = nullptr; // Term eingesetzt
                                 }
                                 *iRAM++ = value2;
                                 *iRAM++ = value2 >> 8;
@@ -750,7 +760,7 @@ RecalcListP op1Recalc,op2Recalc;
                                 if(op2Recalc) {         // Ausdruck undefiniert?
                                     op2Recalc->typ = 1; // zwei Byte einsetzen
                                     op2Recalc->adr = iRAM - RAM;
-                                    op2Recalc = nil;    // Term eingesetzt
+                                    op2Recalc = nullptr; // Term eingesetzt
                                 }
                                 *iRAM++ = value2;
                                 *iRAM++ = value2 >> 8;
@@ -789,7 +799,7 @@ RecalcListP op1Recalc,op2Recalc;
                     if(op1Recalc) {         // Ausdruck undefiniert?
                         op1Recalc->typ = 0; // ein Byte einsetzen
                         op1Recalc->adr = iRAM - RAM;
-                        op1Recalc = nil;    // Term eingesetzt
+                        op1Recalc = nullptr; // Term eingesetzt
                     }
                     *iRAM++ = value1;
                     *iRAM++ = Op0_24|6;
@@ -807,14 +817,14 @@ RecalcListP op1Recalc,op2Recalc;
 /***
  *  Pseudo-Opcode abtesten
  ***/
-Boolean     IgnoreUntilIF = false;  // Zeilen bis zum "ENDIF" ignorieren
+bool     IgnoreUntilIF = false;  // Zeilen bis zum "ENDIF" ignorieren
 
 
-VOID            DoPseudo(CommandP *cp)
+void            DoPseudo(CommandP *cp)
 {
 CommandP    c = *cp;
 CommandP    cptr;
-UWORD       iPC = PC;
+uint16_t    iPC = PC;
 
     switch(c++->val) {      // Opcode durchgehen
     case 0x100:             // DEFB
@@ -834,11 +844,11 @@ UWORD       iPC = PC;
                 if(c->typ != STRING) {
                     Error("Kein String bei DEFM!");
                 } else {
-                    STR     sp;
+                    char*     sp;
                     c--;
                     do {
                         c++;                        // Opcode bzw. Komma skippen
-                        sp = (STR)c++->val;         // Wert = Ptr auf den String
+                        sp = (char*)c++->val;         // Wert = Ptr auf den String
                         while(*sp)
                             RAM[iPC++] = *sp++;     // String übertragen
                     } while((c->typ == OPCODE)&&(c->val == ','));
@@ -854,7 +864,7 @@ UWORD       iPC = PC;
     case 0x103:             // DEFW
                 c--;
                 do {
-                    ULONG   val;
+                    uint32_t val;
                     c++;
                     cptr = c;
                     val = CalcTerm(&cptr);      // Ausdruck auswerten
@@ -895,7 +905,7 @@ UWORD       iPC = PC;
                 if(c->typ != STRING)
                     Error("Kein String bei PRINT!");
                 else
-                    puts((STR)c++->val);            // Message ausgeben
+                    puts((char*)c++->val);            // Message ausgeben
                 break;
     }
     *cp = c;
@@ -905,12 +915,12 @@ UWORD       iPC = PC;
 /***
  *  Zeile übersetzen
  ***/
-VOID        CompileLine(VOID)
+void        CompileLine(void)
 {
 CommandP        c = Cmd;
 CommandP        cptr;
 SymbolP         s;
-UWORD           val;
+uint16_t        val;
 
     if(!c->typ) return;                 // Leerzeile => raus
     if((c->typ == SYMBOL)&& !IgnoreUntilIF) {           // ein Symbol am Zeilenanfang und _kein_ IF?
@@ -941,13 +951,13 @@ UWORD           val;
         while(s->recalc) {              // vom Symbol abhängige Ausdrücke?
             RecalcListP r = s->recalc;
             CommandP    saveC;
-            LONG        value;
+            int32_t     value;
 
             s->recalc = r->next;        // zum nächsten Symbol vorrücken
             saveC = r->c;
             value = CalcTerm(&(r->c));  // Formel (mit jetzt def. Symbol) erneut ausrechnen
             if(!LastRecalc) {           // Ausdruck nun gültig (oder gar noch ein Symbol?)
-                UWORD   adr = r->adr;
+                uint16_t adr = r->adr;
                 switch(r->typ) {
                 case 0x00:              // ein Byte einsetzen
                             RAM[adr] = value;

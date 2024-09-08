@@ -6,21 +6,20 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
-#include <SigmaStr.h>
-#include "Z80 Assembler.h"
+#include "z80_assembler.h"
 
-UWORD       CalcHash(USTR name);
-SymbolP     FindSymbol(STR name);
-VOID        InitSymTab(VOID);
+uint16_t    CalcHash(const char *name);
+SymbolP     FindSymbol(const char* name);
+void        InitSymTab(void);
 
 
 typedef struct {
-    WORD    id;         // ID vom Symbol
-    STR     s;          // String
-    UWORD   p;          // Parameter
+    int16_t    id;         // ID vom Symbol
+    const char *s;         // String
+    uint16_t   p;          // Parameter
 } ShortSym;
 
-ShortSym    Pseudo[] = {    { 0x100,"DEFB",0x0000}, { 0x101,"DEFM",0x0000},{ 0x102,"DEFS",0x0000},
+static const ShortSym    Pseudo[] = {    { 0x100,"DEFB",0x0000}, { 0x101,"DEFM",0x0000},{ 0x102,"DEFS",0x0000},
                             { 0x103,"DEFW",0x0000}, { 0x109,"ELSE",0x0000},{ 0x104,"END",0x0000},
                             { 0x108,"ENDIF",0x0000},{ 0x105,"EQU",0x0000}, { 0x107,"IF",0x0000},
                             { 0x106,"ORG",0x0000},  { 0x10A,"PRINT",0x0000} };
@@ -41,7 +40,7 @@ ShortSym    Pseudo[] = {    { 0x100,"DEFB",0x0000}, { 0x101,"DEFM",0x0000},{ 0x1
 // 0x0D : LD
 // 0x0E : PUSH, POP: dreg
 // 0x0F : RR,RL,RRC,RLC,SRA,SLA,SRL
-ShortSym    Opcodes[] = {   { 0x206,"ADC",0x88CE}, { 0x206,"ADD",0x80C6}, { 0x206,"AND",0xA0E6},
+static const ShortSym    Opcodes[] = {   { 0x206,"ADC",0x88CE}, { 0x206,"ADD",0x80C6}, { 0x206,"AND",0xA0E6},
                             { 0x204,"BIT",0xCB40}, { 0x208,"CALL",0xC4CD},{ 0x201,"CCF",0x3F00},
                             { 0x206,"CP",0xB8FE},  { 0x202,"CPD",0xEDA9}, { 0x202,"CPDR",0xEDB9},
                             { 0x202,"CPI",0xEDA1}, { 0x202,"CPIR",0xEDB1},{ 0x201,"CPL",0x2F00},
@@ -64,7 +63,7 @@ ShortSym    Opcodes[] = {   { 0x206,"ADC",0x88CE}, { 0x206,"ADD",0x80C6}, { 0x20
                             { 0x201,"SCF",0x3700}, { 0x204,"SET",0xCBC0}, { 0x20F,"SLA",0x2026},
                             { 0x20F,"SRA",0x282E}, { 0x20F,"SRL",0x383E}, { 0x206,"SUB",0x90D6},
                             { 0x206,"XOR",0xA8EE} };
-ShortSym    Register[] = {  { 0x307,"A",0x0000}, { 0x323,"AF",0x0000},      // 00…07: B,C,D,E,H,L,(HL),A
+static const ShortSym    Register[] = {  { 0x307,"A",0x0000}, { 0x323,"AF",0x0000},      // 00…07: B,C,D,E,H,L,(HL),A
                             { 0x300,"B",0x0000}, { 0x310,"BC",0x0000},      // 10…13: BC,DE,HL,SP
                             { 0x301,"C",0x0000}, { 0x302,"D",0x0000},       //    23:         ,AF
                             { 0x311,"DE",0x0000},{ 0x303,"E",0x0000},       // 30…31: IX,IY
@@ -74,18 +73,18 @@ ShortSym    Register[] = {  { 0x307,"A",0x0000}, { 0x323,"AF",0x0000},      // 0
                             { 0x340,"R",0x0000}, { 0x313,"SP",0x0000},
                             { 0x355,"X",0x0000}, { 0x354,"HX",0x0000},
                             { 0x365,"Y",0x0000}, { 0x364,"HY",0x0000} };
-ShortSym    Conditions[] = {/*{ 0x403,"C",0x0000},*/{ 0x407,"M",0x0000},    // Condition C = Register C!
+static const ShortSym    Conditions[] = {/*{ 0x403,"C",0x0000},*/{ 0x407,"M",0x0000},    // Condition C = Register C!
                             { 0x402,"NC",0x0000},{ 0x400,"NZ",0x0000},
                             { 0x406,"P",0x0000},{ 0x405,"PE",0x0000},
                             { 0x404,"PO",0x0000},{ 0x401,"Z",0x0000} };
 
 
 typedef struct {
-    ShortSym    *table;     // Ptr auf eine Opcode-Liste
-    WORD        tablesize;  // Länge der Tabelle in Byte
+    const ShortSym    *table;     // Ptr auf eine Opcode-Liste
+    int16_t     tablesize;  // Länge der Tabelle in Byte
 } TokenTable;
 
-TokenTable  Token[] = { { Pseudo,sizeof(Pseudo)/sizeof(ShortSym) },
+static const TokenTable  Token[] = { { Pseudo,sizeof(Pseudo)/sizeof(ShortSym) },
                         { Opcodes,sizeof(Opcodes)/sizeof(ShortSym) },
                         { Register,sizeof(Register)/sizeof(ShortSym) },
                         { Conditions,sizeof(Conditions)/sizeof(ShortSym) },
@@ -98,11 +97,11 @@ SymbolP     SymTab[256];        // Symboltabelle (nach unterem Hashbyte geteilt)
 /***
  *  Hash-Wert über einen String berechnen
  ***/
-UWORD       CalcHash(REG USTR name)
+uint16_t CalcHash(const char *name)
 {
-UWORD       hash_val = 0;
-UWORD       i;
-UCHAR       c;
+uint16_t hash_val = 0;
+uint16_t i;
+uint8_t  c;
 
     while((c = *name++) != 0) {
 #if 0
@@ -119,20 +118,20 @@ UCHAR       c;
 /***
  *  Symbol suchen, wenn nicht gefunden automatisch eintragen
  ***/
-SymbolP     FindSymbol(STR name)
+SymbolP     FindSymbol(const char* name)
 {
-UWORD       hash = CalcHash((USTR)name);// Hash-Wert über den Namen
-UBYTE       hashb = hash;
+uint16_t    hash = CalcHash(name);      // Hash-Wert über den Namen
+uint8_t     hashb = hash;
 SymbolP     s;
 
     s = SymTab[hashb];                  // Ptr auf das erste Symbol
     while(s) {
         if(s->hash == hash)             // Stimmt der Hashwert?
-            if(!Strcmp(s->name,name)) return(s);// Symbol gefunden (Strcmp = schnelle Inline-Routine)
+            if(!strcmp(s->name,name)) return(s);// Symbol gefunden
         s = s->next;                    // zum nächsten Symbol
     }
-    s = malloc(sizeof(Symbol));         // Symbol allozieren
-    if(!s) return(nil);                 // Speicher reicht nicht!
+    s = (SymbolP)malloc(sizeof(Symbol)); // Symbol allozieren
+    if(!s) return nullptr;              // Speicher reicht nicht!
     memset(s,0,sizeof(Symbol));
     s->next = SymTab[hashb]; SymTab[hashb] = s; // Symbol in die Liste einklinken
     s->hash = hash;
@@ -143,25 +142,25 @@ SymbolP     s;
 /***
  *  Symboltabelle initialisieren
  ***/
-VOID        InitSymTab(VOID)
+void        InitSymTab(void)
 {
-WORD        i;
+int16_t     i;
 SymbolP     s;
-TokenTable  *t;
+const TokenTable  *t;
 
     for(i=0;i<256;i++)
-        SymTab[i] = nil;        // alle Symboleinträge zurücksetzen
+        SymTab[i] = nullptr; // alle Symboleinträge zurücksetzen
 
     for(t = Token;t->table;t++) {           // alle Token-Tabellen durchgehen
         for(i=0;i<t->tablesize;i++) {       // und für jede Tabelle alle Tokens
             s = FindSymbol(t->table[i].s);  // Opcode in die Tabelle eintragen
             s->type = t->table[i].id;       // ID (<> 0!)
-            s->val = ((LONG)t->table[i].p<<16)|s->type; // Parameter und ID gleich zusammenpacken
+            s->val = ((int32_t)t->table[i].p<<16)|s->type; // Parameter und ID gleich zusammenpacken
         }
     }
 }
 
-int isalnum_(CHAR c)
+int isalnum_(char c)
 {
     return isalnum(c) || c == '_';
 }
@@ -169,25 +168,25 @@ int isalnum_(CHAR c)
 /***
  *  eine Zeile tokenisieren
  ***/
-VOID        TokenizeLine(STR sp)
+void        TokenizeLine(char* sp)
 {
-STR         sp2;
-CHAR        c;
-CHAR        stemp[MAXLINELENGTH];
-CHAR        maxc;
-WORD        base;
-WORD        dollar;
+char*         sp2;
+char        c;
+char        stemp[MAXLINELENGTH];
+char        maxc;
+int16_t     base;
+int16_t     dollar;
 Type        typ;
-LONG        val;
-CHAR        AktUpLine[MAXLINELENGTH];
-STR         AktLine = sp;           // Zeilenanfang merken
+long        val;
+char        AktUpLine[MAXLINELENGTH];
+char*         AktLine = sp;           // Zeilenanfang merken
 CommandP    cp = Cmd;               // Ptr auf den Command-Buffer
 
     sp2=AktUpLine;
-    while(*sp2++ = toupper(*sp++)); // in Großbuchstaben wandeln
+    while((*sp2++ = toupper(*sp++)) != 0) ; // in Großbuchstaben wandeln
     sp = AktUpLine;
     while(1) {                      // gesamten String parsen
-        while(isspace(c = *sp++));  // Leerzeichen werden überlesen
+        while((isspace(c = *sp++)) != 0) ;  // Leerzeichen werden überlesen
         if(c == ';') break;         // ab hier: ein Kommentar => fertig
         if(c == 0) break;           // Zeilenende => fertig
         typ = ILLEGAL;              // kein gültiger Typ
@@ -228,7 +227,7 @@ CommandP    cp = Cmd;               // Ptr auf den Command-Buffer
             if(base > 0) {                  // eine gültige Zahl?
                 sp2 = stemp;
                 val = 0;
-                while(c = *sp2++) {         // Wert einlesen
+                while((c = *sp2++) != 0) {         // Wert einlesen
                     val *= base;            // mal Zahlenbasis
                     val += (c <= '9')?c - '0':c - 'A' + 10;
                 }
@@ -239,7 +238,7 @@ CommandP    cp = Cmd;               // Ptr auf den Command-Buffer
                     if(!sym) break;             // Fehler =>
                     if(!sym->type) {            // Typ = Symbol?
                         typ = SYMBOL;
-                        val = (LONG)sym;        // Wert = Symboladresse
+                        val = (long)sym;        // Wert = Symboladresse
                         if(!sym->first) {       // Symbol bereits existent =>
                             sym->first = true;  // Symbol implizit definiert
                             sym->defined = false;// Symbol noch nicht definiert
@@ -249,7 +248,7 @@ CommandP    cp = Cmd;               // Ptr auf den Command-Buffer
                         val = sym->val;         // Parameter, ID
                     }
                 } else
-                    Error("Symbole dürfen nicht mit Ziffern anfangen!");
+                    printf("Symbole dürfen nicht mit Ziffern anfangen!\n");
             }
         } else {
             typ = OPCODE;
@@ -283,8 +282,8 @@ CommandP    cp = Cmd;               // Ptr auf den Command-Buffer
                 sp2 = sp;
                 base = sp - AktUpLine;      // Offset auf die Zeile
                 while(*sp2++ != '\"');      // Stringende suchen
-                sp2 = malloc(sp2 - sp);     // Stringbuffer allozieren
-                val = (LONG)sp2;
+                sp2 = (char *)malloc(sp2 - sp); // Stringbuffer allozieren
+                val = (long)sp2;
                 if(!sp2) break;
                 else {
                     while(*sp++ != '\"')    // bis zum Ende der Anführungszeichen
@@ -303,5 +302,5 @@ CommandP    cp = Cmd;               // Ptr auf den Command-Buffer
         cp->typ = typ; cp->val = val;       // in den Command-Buffer übertragen
         cp++;
     }
-    cp->typ = 0; cp->val = 0;               // Command-Buffer abschließen
+    cp->typ = ILLEGAL; cp->val = 0;        // Command-Buffer abschließen
 }

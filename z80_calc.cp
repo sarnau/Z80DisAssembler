@@ -5,12 +5,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "Z80 Assembler.h"
+#include "z80_assembler.h"
 
-LONG        GetValue(CommandP *c);
-LONG        GetExpr(CommandP *c);
-LONG        GetTerm(CommandP *c);
-LONG        GetCalcTerm(CommandP *c);
+int32_t GetValue(CommandP *c);
+int32_t GetExpr(CommandP *c);
+int32_t GetTerm(CommandP *c);
+int32_t GetCalcTerm(CommandP *c);
 
 SymbolP     ErrSymbol;
 RecalcListP LastRecalc;
@@ -19,9 +19,9 @@ RecalcListP LastRecalc;
  *  Ausdruck ab c ausrechnen
  ***/
 // Symbol, Zahl oder Klammern holen
-LONG        GetValue(CommandP *c)
+int32_t GetValue(CommandP *c)
 {
-LONG    value = 0;
+int32_t value = 0;
 SymbolP s;
 
     switch((*c)->typ) {
@@ -52,36 +52,36 @@ SymbolP s;
 }
 
 // Vorzeichen auswerten
-LONG        GetExpr(CommandP *c)
+int32_t GetExpr(CommandP *c)
 {
-LONG    value;
-Boolean neg = false;
-Boolean not = false;
+int32_t value;
+bool    negOp = false;
+bool    notOp = false;
 
     if((*c)->typ == OPCODE) {
         if((*c)->val == '-') {
             (*c)++;         // Rechenzeichen überspringen
-            neg = true;     // negatives Vorzeichen erkannt
+            negOp = true;   // negatives Vorzeichen erkannt
         } else if((*c)->val == '+') {
             (*c)++;         // Vorzeichen überspringen
         } else if((*c)->val == '!') {
             (*c)++;         // NOT überspringen
-            not = true;     // NOT erkannt
+            notOp = true;   // NOT erkannt
         }
     }
     value = GetValue(c);
-    if(neg)                 // negatives Vorzeichen?
+    if(negOp)               // negatives Vorzeichen?
         value = -value;     // negieren
-    if(not)                 // NOT?
+    if(notOp)               // NOT?
         value = !value;     // invertieren
     return(value);
 }
 
 // Punktrechnung
-LONG        GetTerm(CommandP *c)
+int32_t GetTerm(CommandP *c)
 {
-LONG    value;
-Boolean exit = false;
+int32_t value;
+bool    exit = false;
 
     value = GetExpr(c);
     while(((*c)->typ == OPCODE)&&!exit) {
@@ -105,10 +105,10 @@ Boolean exit = false;
 }
 
 // Strichrechnung
-LONG        GetCalcTerm(CommandP *c)
+int32_t GetCalcTerm(CommandP *c)
 {
-LONG    value;
-Boolean exit = false;
+int32_t value;
+bool    exit = false;
 
     value = GetTerm(c);
     while(((*c)->typ == OPCODE)&&!exit) {
@@ -138,23 +138,23 @@ Boolean exit = false;
 }
 
 // Ausdruck ausrechnen
-LONG        CalcTerm(CommandP *c)
+int32_t CalcTerm(CommandP *c)
 {
-LONG        value;
+int32_t     value;
 CommandP    cSave = *c;
 CommandP    cp;
-LONG        len;
+int32_t     len;
 RecalcListP r;
 
-    LastRecalc = nil;                   // Ausdruck (bis jetzt) ok!
-    ErrSymbol = nil;                    // nicht definiertes Symbol in der Formel?
+    LastRecalc = nullptr;               // Ausdruck (bis jetzt) ok!
+    ErrSymbol = nullptr;                // nicht definiertes Symbol in der Formel?
     value = GetCalcTerm(c);
     if(ErrSymbol) {                     // min. ein Symbol undefiniert?
-        len = (LONG)*c - (LONG)cSave + sizeof(Command); // Platz für Formel + Endekennung
+        len = (long)*c - (long)cSave + sizeof(Command); // Platz für Formel + Endekennung
         cp = (CommandP)malloc(len);     // Speicher für die Formel allozieren
         if(!cp) exit(1);                // Speicher reicht nicht!
         memset(cp,0,len);               // Speicher löschen
-        memcpy(cp,cSave,(LONG)*c - (LONG)cSave);    // Formel übertragen
+        memcpy(cp,cSave,(long)*c - (long)cSave);    // Formel übertragen
         r = (RecalcListP)malloc(sizeof(RecalcList));    // Recalc-Eintrag anfordern
         r->c = cp;                      // Formel einklinken
         r->typ = -1;                    // Typ: illegal (da unbekannt)
