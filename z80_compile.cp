@@ -446,22 +446,28 @@ RecalcListP op1Recalc,op2Recalc;
                     case 8: i = 0x08;
                             break;
                     case 2:
-                    case 10:i = 0x10;
+                    case 10:
+                    case 0x10:i = 0x10;
                             break;
                     case 3:
-                    case 18:i = 0x18;
+                    case 18:
+                    case 0x18:i = 0x18;
                             break;
                     case 4:
-                    case 20:i = 0x20;
+                    case 20:
+                    case 0x20:i = 0x20;
                             break;
                     case 5:
-                    case 28:i = 0x28;
+                    case 28:
+                    case 0x28:i = 0x28;
                             break;
                     case 6:
-                    case 30:i = 0x30;
+                    case 30:
+                    case 0x30:i = 0x30;
                             break;
                     case 7:
-                    case 38:i = 0x38;
+                    case 38:
+                    case 0x38:i = 0x38;
                             break;
                     default:
                             Error("Nur 00,08,10,18,20,28,30,38 ist erlaubt!");
