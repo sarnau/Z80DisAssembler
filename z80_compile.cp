@@ -1,5 +1,5 @@
 /***
- *  eine tokenisierte Zeile übersetzen
+ *  compile a tokenzied line
  ***/
 
 #include <stdio.h>
@@ -11,73 +11,73 @@ void            DoOpcode(CommandP *cp);
 int16_t         GetOperand(CommandP *cp,int32_t *value);
 
 /***
- *  Operanden holen
+ *  get operands for an opcode
  ***/
 int16_t GetOperand(CommandP *c,int32_t *value)
 {
 int16_t  typ;
 int16_t  val,sval;
 
-    LastRecalc = nullptr; // (sicher ist sicher: Recalc-Eintrag löschen)
+    LastRecalc = nullptr; // (to be safe: reset recalc entry)
     *value = 0;
-    typ = (*c)->typ;val = (*c)++->val;                      // Wert und Typ holen
+    typ = (*c)->typ;val = (*c)++->val;                      // get value and type
     if(typ == OPCODE) {
         if((val >= 0x300)&&(val <= 0x4FF)) {
             if((val == 0x323)&&((*c)->typ == OPCODE)&&((*c)->val == '\'')) {    // AF'?
-                (*c)++;                                     // ' überspringen
-                val = 0x324;                                // AF' zurückgeben
+                (*c)++;                                     // skip '
+                val = 0x324;                                // AF' returned
             }
-            return(val);                                    // Register bzw. Conditions
+            return val;                                     // register or condition
         }
-        if((val >= 0x100)&&(val <= 0x2FF))                  // ein Opcode!
-            Error("Illegaler Operand!");
-        if((val == '(') != 0) {                             // Indirekte Adreßierung?
-            typ = (*c)->typ;sval = (*c)++->val;             // Wert und Typ holen
+        if((val >= 0x100)&&(val <= 0x2FF))                  // an opcode
+            Error("Illegal operand");
+        if((val == '(') != 0) {                             // indirect addressing?
+            typ = (*c)->typ;sval = (*c)++->val;             // get value and type
             if(typ == OPCODE) {
-                if(((sval & 0xFF0) == 0x310)||(sval == 0x301)) {// Register
-                    typ = (*c)->typ;val = (*c)++->val;      // Wert und Typ holen
+                if(((sval & 0xFF0) == 0x310)||(sval == 0x301)) {// register
+                    typ = (*c)->typ;val = (*c)++->val;      // get value and type
                     if((typ == OPCODE)&&(val == ')')) {
                         if(sval == 0x312)                   // (HL)?
-                            return(0x306);                  // zum besseren Zusammensetzen!!!
-                        return(sval + 0x200);               // (C),(BC),(DE),(SP)
+                            return 0x306;                   // to combine them easier
+                        return sval + 0x200;                // (C),(BC),(DE),(SP)
                     }
-                    Error("Klammer zu nach (BC,(DE,(HL oder (SP fehlt!");
+                    Error("Closing bracket missing after (BC,(DE,(HL or (SP");
                 }
                 if((sval & 0xFF0) == 0x330) {               // IX,IY
-                    if((*c)->typ == OPCODE) {               // folgt ein Rechenzeichen?
+                    if((*c)->typ == OPCODE) {               // does an operator follow?
                         val = (*c)->val;
                         if((val == '+')||(val == '-')) {
                             *value = CalcTerm(c);
-                            typ = (*c)->typ;val = (*c)++->val;  // Klammer zu holen
+                            typ = (*c)->typ;val = (*c)++->val;  // get a braket
                             if((typ == OPCODE)&&(val == ')'))
-                                return(sval + 0x300);       // (IX+d) oder (IY+d)
-                            Error("Klammer zu nach (IX oder (IY fehlt!");
+                                return sval + 0x300;        // (IX+d) or (IY+d)
+                            Error("Closing bracket missing after (IX or (IY");
                         } else {
                             if((typ == OPCODE)&&(val == ')')) {
-                                (*c)++;                     // Klammer zu überlesen
-                                return(sval + 0x200);       // (IX) oder (IY)
+                                (*c)++;                     // skip the bracket
+                                return sval + 0x200;        // (IX) or (IY)
                             }
-                            Error("Klammer zu nach (IX oder (IY fehlt!");
+                            Error("Closing bracket missing after (IX or (IY");
                         }
                     } else
-                        Error("Illegales Zeichen nach (IX oder (IY");
+                        Error("Illegal character after (IX or (IY");
                 }
             }
             (*c)--;     // Ptr auf das vorherige Zeichen zurück
             *value = CalcTerm(c);
-            typ = (*c)->typ;val = (*c)++->val;      // Klammer zu holen
+            typ = (*c)->typ;val = (*c)++->val;      // get the closing bracket
             if((typ == OPCODE)&&(val == ')'))
-                return(0x280);                      // (Adr)
-            Error("Klammer zu nach (Adr) fehlt!");
+                return 0x280;                       // (Adr)
+            Error("Closing bracket missing after (adr)");
         }
-    }                                       // Absolute Adreßierung
-    (*c)--;                                 // Ptr auf das vorherige Zeichen zurück
+    }                                       // absolute addressing
+    (*c)--;                                 // return to the previous token
     *value = CalcTerm(c);
-    return(0x281);                          // Adr
+    return 0x281;                           // return an address
 }
 
 /***
- *  Opcode abtesten
+ *  test for an opcode
  ***/
 void            DoOpcode(CommandP *cp)
 {
@@ -89,94 +89,94 @@ int16_t     op1,op2;
 int32_t     value1,value2;
 RecalcListP op1Recalc,op2Recalc;
 
-    op0 = c++->val;                             // Opcode
+    op0 = c++->val;                             // opcode
     op1 = op2 = 0;
     if(c->typ) {
-        op1 = GetOperand(&c,&value1);           // 1. Operand holen
-        op1Recalc = LastRecalc;                 // evtl. Recalc-Eintrag
-        if((c->typ == OPCODE)&&(c->val == ',')) {   // ein 2. Operand?
+        op1 = GetOperand(&c,&value1);           // get 1. operand
+        op1Recalc = LastRecalc;                 // store Recalc ptr for 1. operand
+        if((c->typ == OPCODE)&&(c->val == ',')) {   // get a potential 2. operand
             c++;
-            op2 = GetOperand(&c,&value2);       // diesen auch holen
-            op2Recalc = LastRecalc;             // evtl. Recalc-Eintrag
+            op2 = GetOperand(&c,&value2);       // get the 2. operand
+            op2Recalc = LastRecalc;             // store Recalc ptr for 2. operand
         }
     }
     Op0_24 = op0 >> 24;
     Op0_16 = op0 >> 16;
-    switch(op0 & 0xFF) {        // Opcode
+    switch(op0 & 0xFF) {        // opcode
     case 0x00:                              // IN/OUT
                 if(Op0_24 & 0x01) {         // OUT?
                     int32_t t;
                     RecalcListP tr;
-                    t = op1; op1 = op2; op2 = t;                // Operanden drehen
+                    t = op1; op1 = op2; op2 = t;                // flip operands
                     t = value1; value1 = value2; value2 = t;
                     tr = op1Recalc; op1Recalc = op2Recalc; op2Recalc = tr;
                 }
-                if(((op1 & 0xFF0)== 0x300)&&(op2 == 0x501)) {   // IN ?,(C) bzw. OUT (C),?
+                if(((op1 & 0xFF0)== 0x300)&&(op2 == 0x501)) {   // IN ?,(C) or OUT (C),?
                     if(op1 == 0x306)
-                        Error("IN (HL),(C) bzw. OUT (C),(HL) geht nicht!");
+                        Error("IN (HL),(C) or OUT (C),(HL) geht nicht");
                     else {
                         *iRAM++ = 0xED;
                         *iRAM++ = Op0_24|((op1 & 0x7) << 3);
                     }
-                } else if((op1 == 0x307)&&(op2 == 0x280)) {     // IN A,(n) bzw. OUT (n),A
+                } else if((op1 == 0x307)&&(op2 == 0x280)) {     // IN A,(n) or OUT (n),A
                     *iRAM++ = Op0_16;
-                    if(op2Recalc) {         // Ausdruck undefiniert?
-                        op2Recalc->typ = 0; // ein Byte einsetzen
+                    if(op2Recalc) {         // undefined expression?
+                        op2Recalc->typ = 0; // add a single byte
                         op2Recalc->adr = iRAM - RAM;
-                        op2Recalc = nullptr; // Term eingesetzt
+                        op2Recalc = nullptr; // processing done
                     }
                     *iRAM++ = value2;
                 } else
-                    Error("Operanden bei IN/OUT nicht erlaubt!");
+                    Error("operands not allowed for IN/OUT");
                 break;
-    case 0x01:                              // 1.Byte Befehl ohne Parameter
-                if(op1|op2)                             // Operanden angegeben?
-                    Error("Keine Operanden erlaubt");   // das ist falsch!
+    case 0x01:                              // one byte opcode without parameter
+                if(op1|op2)                             // operands provied?
+                    Error("operands not allowed");
                 else
                     *iRAM++ = Op0_24;
                 break;
-    case 0x02:                              // 2.Byte Befehl ohne Parameter
-                if(op1|op2)                             // Operanden angegeben?
-                    Error("Keine Operanden erlaubt");   // das ist falsch!
+    case 0x02:                              // two byte opcode without parameter
+                if(op1|op2)                             // operands provied?
+                    Error("operands not allowed");
                 else {
                     *iRAM++ = Op0_24;
                     *iRAM++ = Op0_16;
                 }
                 break;
-    case 0x03:  if(((op1 != 0x306)&&(op1))||(op2))      // RRD (HL) oder RLD (HL)
-                    Error("Falscher Operand!");
+    case 0x03:  if(((op1 != 0x306)&&(op1))||(op2))      // RRD (HL) or RLD (HL)
+                    Error("Illegal Operand");
                 else {
                     *iRAM++ = Op0_24;
                     *iRAM++ = Op0_16;
                 }
                 break;
-    case 0x04:  // 1.Parameter = Bitno., 2.Parameter = <ea> (BIT,RES,SET)
+    case 0x04:  // 1.parameter = bit number, 2.parameter = <ea> (BIT,RES,SET)
                 if((op1 != 0x281)||(value1 < 0)||(value1 > 7))
-                    Error("1.Operand muß 0…7 sein!");
+                    Error("1st operand has to be between 0 and 7");
                 else {
                     if((op2 & 0xFF0) == 0x300) {    // A,B,C,D,E,H,L,(HL)
                         *iRAM++ = Op0_24;
                         *iRAM++ = Op0_16|(value1 << 3)|(op2 & 0x07);
-                    } else if((op2 & 0xFF0) == 0x630) { // (IX+d) oder (IY+d)
+                    } else if((op2 & 0xFF0) == 0x630) { // (IX+d) or (IY+d)
                         *iRAM++ = (op2 & 0x01)?0xFD:0xDD;
                         *iRAM++ = Op0_24;
-                        if(op2Recalc) {         // Ausdruck undefiniert?
-                            op2Recalc->typ = 0; // ein Byte einsetzen
+                        if(op2Recalc) {         // expression undefined?
+                            op2Recalc->typ = 0; // add a single byte
                             op2Recalc->adr = iRAM - RAM;
-                            op2Recalc = nullptr; // Term eingesetzt
+                            op2Recalc = nullptr; // processing done
                         }
                         *iRAM++ = value2;
                         *iRAM++ = Op0_16|(value1 << 3)|6;
                     } else
-                        Error("2.Operand falsch");
+                        Error("2nd operand wrong");
                 }
                 break;
-    case 0x05:  // IM (ein Parameter: 0,1,2)
+    case 0x05:  // IM (one parameter: 0,1,2)
                 if((op1 != 0x281)||(op2))
-                    Error("Operandenangabe falsch");
+                    Error("operand wrong");
                 else {
                     if((value1 < 0)||(value1 > 2))
-                        Error("Nur 0, 1 oder 2 erlaubt!");
+                        Error("Operand value has to be 0, 1 or 2");
                     else {
                         if(value1 > 0) value1++;
                         *iRAM++ = Op0_24;
@@ -202,10 +202,10 @@ RecalcListP op1Recalc,op2Recalc;
                             *iRAM++ = 0x42|((op2 & 0x03)<<4);
                             break;
                         default:
-                            Error("Befehl mit dieser <ea> nicht möglich");
+                            Error("Opcode with this <ea> not allowed");
                         }
                     } else
-                        Error("Doppelregister erwartet");
+                        Error("Expecting a double-register");
                     break;
                 case 0x330: // IX
                 case 0x331: // IY
@@ -224,20 +224,20 @@ RecalcListP op1Recalc,op2Recalc;
                             *iRAM++ = (op1 & 0x01)?0xFD:0xDD;
                             *iRAM++ = 0x29;
                         } else
-                            Error("Nur ADD IX,IY oder ADD IY,IY möglich!");
+                            Error("Only ADD IX,IY or ADD IY,IY are possible");
                         break;
                     case 0x313: // SP
                         *iRAM++ = (op1 & 0x01)?0xFD:0xDD;
                         *iRAM++ = 0x39;
                         break;
                     default:
-                        Error("Befehl mit dieser <ea> nicht möglich");
+                        Error("Opcode with this <ea> not allowed");
                     }
                     break;
                 default:
-                    if((op1 == 0x307)&&(op2)) { // Akku?
+                    if((op1 == 0x307)&&(op2)) { // accumulator?
                         op1 = op2;
-                        value1 = value2;        // 2. Operanden nach vorne schieben
+                        value1 = value2;        // Shift 2nd operand to the beginning
                         op1Recalc = op2Recalc;
                         op2Recalc = nullptr;
                     }
@@ -253,44 +253,44 @@ RecalcListP op1Recalc,op2Recalc;
                     case 0x300: // A,B,C,D,E,H,L,(HL)
                                 *iRAM++ = Op0_24|(op1 & 7);
                                 break;
-                    case 0x630: // (IX+d) oder (IY+d)
+                    case 0x630: // (IX+d) or (IY+d)
                                 *iRAM++ = (op1 & 0x01)?0xFD:0xDD;
                                 *iRAM++ = Op0_24|6;
-                                if(op1Recalc) {         // Ausdruck undefiniert?
-                                    op1Recalc->typ = 0; // ein Byte einsetzen
+                                if(op1Recalc) {         // expression undefined?
+                                    op1Recalc->typ = 0; // add a single byte
                                     op1Recalc->adr = iRAM - RAM;
-                                    op1Recalc = nullptr; // Term eingesetzt
+                                    op1Recalc = nullptr; // processing done
                                 }
                                 *iRAM++ = value1;
                                 break;
                     case 0x280: // n
                                 if(op1 == 0x281) {
                                     *iRAM++ = Op0_16;
-                                    if(op1Recalc) {         // Ausdruck undefiniert?
-                                        op1Recalc->typ = 0; // ein Byte einsetzen
+                                    if(op1Recalc) {         // expression undefined?
+                                        op1Recalc->typ = 0; // add a single byte
                                         op1Recalc->adr = iRAM - RAM;
-                                        op1Recalc = nullptr; // Term eingesetzt
+                                        op1Recalc = nullptr; // processing done
                                     }
                                     *iRAM++ = value1;
                                     break;
                                 }
                     default:
-                                Error("2.Operand falsch");
+                                Error("2nd operand wrong");
                     }
                 }
                 break;
-    case 0x07:  // INC, DEC, wie 0x06 nur ohne absolute Adr.
+    case 0x07:  // INC, DEC, like 0x06 without absolute address
                 if(op2)
-                    Error("2.Operand nicht erlaubt!");
+                    Error("2nd operand not allowed");
                 if((op1 & 0xFF0) == 0x300) {        // A,B,C,D,E,H,L,(HL)
                     *iRAM++ = Op0_24|((op1 & 7)<<3);
-                } else if((op1 & 0xFF0) == 0x630) { // (IX+d) oder (IY+d)
+                } else if((op1 & 0xFF0) == 0x630) { // (IX+d) or (IY+d)
                     *iRAM++ = (op1 & 1)?0xFD:0xDD;
                     *iRAM++ = Op0_24|(6<<3);
-                    if(op1Recalc) {         // Ausdruck undefiniert?
-                        op1Recalc->typ = 0; // ein Byte einsetzen
+                    if(op1Recalc) {         // expression undefined?
+                        op1Recalc->typ = 0; // add a single byte
                         op1Recalc->adr = iRAM - RAM;
-                        op1Recalc = nullptr; // Term eingesetzt
+                        op1Recalc = nullptr; // processing done
                     }
                     *iRAM++ = value1;
                 } else {
@@ -333,20 +333,20 @@ RecalcListP op1Recalc,op2Recalc;
                             *iRAM++ = decFlag?0x2B:0x23;
                             break;
                     default:
-                            Error("Adressierungsart nicht erlaubt!");
+                            Error("Addressing mode not allowed");
                     }
                 }
                 break;
-    case 0x08:  // JP, CALL, JR (Achtung! Unterschiedliche <ea>!)
-                if(op1 == 0x301) op1 = 0x403;   // Register C in Condition C wandeln
+    case 0x08:  // JP, CALL, JR (Warning! Different <ea>!)
+                if(op1 == 0x301) op1 = 0x403;   // convert register 'C' into condition 'C'
                 switch(Op0_24) {
                 case 0xC2:  // JP
-                        if((op1 >= 0x400)&&(op1 <= 0x4FF)&&(op2 == 0x281)) {    // Cond,Adr
+                        if((op1 >= 0x400)&&(op1 <= 0x4FF)&&(op2 == 0x281)) {    // cond,Adr
                             *iRAM++ = Op0_24|((op1 & 0x07)<<3);
-                            if(op2Recalc) {         // Ausdruck undefiniert?
-                                op2Recalc->typ = 1; // zwei Byte einsetzen
+                            if(op2Recalc) {         // expression undefined?
+                                op2Recalc->typ = 1; // add two bytes
                                 op2Recalc->adr = iRAM - RAM;
-                                op2Recalc = nullptr; // Term eingesetzt
+                                op2Recalc = nullptr; // processing done
                             }
                             *iRAM++ = value2;
                             *iRAM++ = value2 >> 8;
@@ -360,23 +360,23 @@ RecalcListP op1Recalc,op2Recalc;
                             *iRAM++ = 0xE9;
                         } else if((op1 == 0x281)|!op2) {    //  JP Adr
                             *iRAM++ = Op0_16;
-                            if(op1Recalc) {         // Ausdruck undefiniert?
-                                op1Recalc->typ = 1; // zwei Byte einsetzen
+                            if(op1Recalc) {         // expression undefined?
+                                op1Recalc->typ = 1; // add two bytes
                                 op1Recalc->adr = iRAM - RAM;
-                                op1Recalc = nullptr; // Term eingesetzt
+                                op1Recalc = nullptr; // processing done
                             }
                             *iRAM++ = value1;
                             *iRAM++ = value1 >> 8;
                         } else
-                            Error("1.Operand falsch");
+                            Error("1st operand wrong");
                         break;
                 case 0x20:  // JR
                         if((op1 >= 0x400)&&(op1 <= 0x403)&&(op2 == 0x281)) {    // Cond,Adr
                             *iRAM++ = Op0_24|((op1 & 0x07)<<3);
-                            if(op2Recalc) {         // Ausdruck undefiniert?
+                            if(op2Recalc) {         // expression undefined?
                                 op2Recalc->typ = 2; // ein PC-rel-Byte einsetzen
                                 op2Recalc->adr = iRAM - RAM;
-                                op2Recalc = nullptr; // Term eingesetzt
+                                op2Recalc = nullptr; // processing done
                             }
                             {
                             uint8_t b = value2 - (iRAM - RAM) - 1;
@@ -384,59 +384,59 @@ RecalcListP op1Recalc,op2Recalc;
                             }
                         } else if((op1 == 0x281)&&!op2) {   //  JR Adr
                             *iRAM++ = Op0_16;
-                            if(op1Recalc) {         // Ausdruck undefiniert?
+                            if(op1Recalc) {         // expression undefined?
                                 op1Recalc->typ = 2; // ein PC-rel-Byte einsetzen
                                 op1Recalc->adr = iRAM - RAM;
-                                op1Recalc = nullptr; // Term eingesetzt
+                                op1Recalc = nullptr; // processing done
                             }
                             {
                             uint8_t b = value1 - (iRAM - RAM) - 1;
                             *iRAM++ = b;
                             }
                         } else
-                            Error("Bedingung nicht erlaubt!");
+                            Error("Condition not allowed");
                         break;
                 case 0xC4:  // CALL
                         if((op1 >= 0x400)&&(op1 <= 0x4FF)&&(op2 == 0x281)) {    // Cond,Adr
                             *iRAM++ = Op0_24|((op1 & 0x07)<<3);
-                            if(op2Recalc) {         // Ausdruck undefiniert?
-                                op2Recalc->typ = 1; // zwei Byte einsetzen
+                            if(op2Recalc) {         // expression undefined?
+                                op2Recalc->typ = 1; // add two bytes
                                 op2Recalc->adr = iRAM - RAM;
-                                op2Recalc = nullptr; // Term eingesetzt
+                                op2Recalc = nullptr; // processing done
                             }
                             *iRAM++ = value2;
                             *iRAM++ = value2 >> 8;
                         } else if((op1 == 0x281)&&!op2) {   //  CALL Adr
                             *iRAM++ = Op0_16;
-                            if(op1Recalc) {         // Ausdruck undefiniert?
-                                op1Recalc->typ = 1; // zwei Byte einsetzen
+                            if(op1Recalc) {         // expression undefined?
+                                op1Recalc->typ = 1; // add two bytes
                                 op1Recalc->adr = iRAM - RAM;
-                                op1Recalc = nullptr; // Term eingesetzt
+                                op1Recalc = nullptr; // processing done
                             }
                             *iRAM++ = value1;
                             *iRAM++ = value1 >> 8;
                         } else
-                            Error("1.Operand falsch");
+                            Error("1st operand wrong");
                         break;
                 default:
-                        Error("Opcode-Tabelle defekt!");
+                        Error("opcode table has a bug");
                 }
                 break;
     case 0x09:  if(op2)                         // RET-Befehl
-                    Error("zu viele Operanden");
+                    Error("Too many operands");
                 else if(!op1)                   // keine Condition angegeben?
                     *iRAM++ = Op0_16;           // normalen Opcode nehmen
                 else {
                     if(op1 == 0x301) op1 = 0x403;   // Register C in Condition C wandeln
                     if((op1 & 0xF00) != 0x400)
-                        Error("falscher Operand angegeben!");
+                        Error("Wrong Operand");
                     else
                         *iRAM++ = Op0_24|((op1 & 0x07)<<3);
                 }
                 break;
     case 0x0A:  // RST (00,08,10,18,20,28,30,38)
                 if(op2)
-                    Error("zu viele Operanden");
+                    Error("Too many operands");
                 else if(op1 == 0x281) {     // n
                     int16_t i = -1;
                     switch(value1) {
@@ -470,26 +470,26 @@ RecalcListP op1Recalc,op2Recalc;
                     case 0x38:i = 0x38;
                             break;
                     default:
-                            Error("Nur 00,08,10,18,20,28,30,38 ist erlaubt!");
+                            Error("Only 00,08,10,18,20,28,30,38 are allowed");
                     }
                     if(i>=0)
                         *iRAM++ = Op0_24|i;
                 } else
-                    Error("Adressierungsart nicht erlaubt!");
+                    Error("Addressing mode not allowed");
                 break;
     case 0x0B:  // DJNZ
                 *iRAM++ = Op0_24;
-                if(op1Recalc) {         // Ausdruck undefiniert?
+                if(op1Recalc) {         // expression undefined?
                     op1Recalc->typ = 2; // ein PC-rel-Byte einsetzen
                     op1Recalc->adr = iRAM - RAM;
-                    op1Recalc = nullptr; // Term eingesetzt
+                    op1Recalc = nullptr; // processing done
                 }
                 {
                 uint8_t b = value1 - (iRAM - RAM) - 1;
-                *iRAM++ = b;             // relozieren
+                *iRAM++ = b;             // relocate
                 }
                 break;
-    case 0x0C:  // EX: (SP),dreg oder DE,HL oder AF,AF'
+    case 0x0C:  // EX: (SP),dreg or DE,HL or AF,AF'
                 if((op1 == 0x311)&&(op2 == 0x312))      // EX DE,HL
                     *iRAM++ = 0xEB;
                 else if((op1 == 0x323)&&(op2 == 0x324)) {   // EX AF,AF'
@@ -506,11 +506,11 @@ RecalcListP op1Recalc,op2Recalc;
                     *iRAM++ = 0xE3;
                 }
                 else
-                    Error("Operanden bei Exchange nicht möglich!");
+                    Error("Operand combination not allowed with EX");
                 break;
     case 0x0D:  // LD
                 if(!(op1 & op2))
-                    Error("Operand fehlt!");
+                    Error("Operand missing");
                 else {
                     uint8_t FirstByte = 0;
                     switch(op1) {
@@ -523,7 +523,7 @@ RecalcListP op1Recalc,op2Recalc;
                     case 0x365: //  Y
                             FirstByte = ((op1 & 0xFF0)==0x350)?0xDD:0xFD;
                             *iRAM++ = FirstByte;
-                            op1 &= 0xF0F;   // auf H und L ummappen
+                            op1 &= 0xF0F;   // remap H and L
                     case 0x300: // B
                     case 0x301: // C
                     case 0x302: // D
@@ -533,7 +533,7 @@ RecalcListP op1Recalc,op2Recalc;
                     case 0x306: // (HL)
                     case 0x307: // A
                             switch(op2 & 0xFF0) {
-                            case 0x530: // LD <ea>,(IX), bzw. LD <ea>,(IY)
+                            case 0x530: // LD <ea>,(IX), or LD <ea>,(IY)
                                     op2 = (op2 == 0x530)?0x356:0x366;
                             case 0x350:     // X,HX
                             case 0x360:     // Y,HY
@@ -542,18 +542,18 @@ RecalcListP op1Recalc,op2Recalc;
                                     switch(FirstByte) {
                                     case 0xDD:  // IX
                                             if(!flag)
-                                                Error("IX,IY geht nicht!");
+                                                Error("IX,IY geht nicht");
                                             break;
                                     case 0xFD:  // IY
                                             if(flag)
-                                                Error("IY,IX geht nicht!");
+                                                Error("IY,IX geht nicht");
                                             break;
                                     default:    // noch nix
                                             *iRAM++ = (flag)?0xDD:0xFD;
                                             break;
                                     }
                                     }
-                                    op2 &= 0xF0F;   // auf H und L ummappen
+                                    op2 &= 0xF0F;   // remap H and L
                             case 0x300:     // B,C,D,E,H,L,(HL),A
                                     *iRAM++ = 0x40|((op1 & 0x07)<<3)|(op2 & 0x07);
                                     break;
@@ -564,44 +564,44 @@ RecalcListP op1Recalc,op2Recalc;
                                         else if(op2 == 0x511)
                                             *iRAM++ = 0x1A;
                                         else
-                                            Error("(SP) nicht erlaubt");
+                                            Error("(SP) not allowed");
                                     } else
-                                        Error("nur LD A,(BC) oder LD A,(DE) möglich!");
+                                        Error("Only LD A,(BC) or LD A,(DE) allowed");
                                     break;
                             case 0x630: // (IX+d), (IY+d)
                                     if(op1 != 0x306) {  // (HL)
                                         *iRAM++ = (op2 & 0x01)?0xFD:0xDD;
                                         *iRAM++ = 0x46|((op1 & 0x07)<<3);
-                                        if(op2Recalc) {         // Ausdruck undefiniert?
-                                            op2Recalc->typ = 0; // ein Byte einsetzen
+                                        if(op2Recalc) {         // expression undefined?
+                                            op2Recalc->typ = 0; // add a single byte
                                             op2Recalc->adr = iRAM - RAM;
-                                            op2Recalc = nullptr; // Term eingesetzt
+                                            op2Recalc = nullptr; // processing done
                                         }
                                         *iRAM++ = value2;
                                     } else
-                                        Error("LD (HL),(IX/IY+d) nicht erlaubt!");
+                                        Error("LD (HL),(IX/IY+d) not allowed");
                                     break;
                             case 0x280: // (n), n
                                     if(op2 == 0x281) {
                                         *iRAM++ = 0x06|((op1 & 0x07)<<3);
-                                        if(op2Recalc) {         // Ausdruck undefiniert?
-                                            op2Recalc->typ = 0; // ein Byte einsetzen
+                                        if(op2Recalc) {         // expression undefined?
+                                            op2Recalc->typ = 0; // add a single byte
                                             op2Recalc->adr = iRAM - RAM;
-                                            op2Recalc = nullptr; // Term eingesetzt
+                                            op2Recalc = nullptr; // processing done
                                         }
                                         *iRAM++ = value2;
                                     } else {
                                         if(op1 == 0x307) {
                                             *iRAM++ = 0x3A;
-                                            if(op2Recalc) {         // Ausdruck undefiniert?
-                                                op2Recalc->typ = 1; // zwei Byte einsetzen
+                                            if(op2Recalc) {         // expression undefined?
+                                                op2Recalc->typ = 1; // add two bytes
                                                 op2Recalc->adr = iRAM - RAM;
-                                                op2Recalc = nullptr; // Term eingesetzt
+                                                op2Recalc = nullptr; // processing done
                                             }
                                             *iRAM++ = value2;
                                             *iRAM++ = value2 >> 8;
                                         } else
-                                            Error("Nur LD A,(n) ist erlaubt!");
+                                            Error("Only LD A,(n) allowed");
                                     }
                                     break;
                             case 0x340: // I,R
@@ -609,10 +609,10 @@ RecalcListP op1Recalc,op2Recalc;
                                         *iRAM++ = 0xED;
                                         *iRAM++ = (op2 != 0x340)?0x57:0x5F;
                                     } else
-                                        Error("Nur LD A,I oder LD A,R ist erlaubt!");
+                                        Error("Only LD A,I or LD A,R allowed");
                                     break;
                             default:
-                                    Error("2.Operand fehlerhaft");
+                                    Error("2nd operand wrong");
                             }
                             break;
                     case 0x340: // I,R
@@ -621,14 +621,14 @@ RecalcListP op1Recalc,op2Recalc;
                                 *iRAM++ = 0xED;
                                 *iRAM++ = (op1 != 0x340)?0x47:0x4F;
                             } else
-                                Error("nur LD I,A oder LD R,A erlaubt!");
+                                Error("Only LD I,A or LD R,A allowed");
                             break;
                     case 0x510: // (BC)
                     case 0x511: // (DE)
                             if(op2 == 0x307) {  // A
                                 *iRAM++ = (op1 == 0x510)?0x02:0x12;
                             } else
-                                Error("nur LD (BC),A oder LD (DE),A erlaubt!");
+                                Error("Only LD (BC),A or LD (DE),A allowed");
                             break;
                     case 0x630: // (IX+d)
                     case 0x631: // (IY+d)
@@ -642,51 +642,51 @@ RecalcListP op1Recalc,op2Recalc;
                             case 0x307: // A
                                 *iRAM++ = (op1 & 0x01)?0xFD:0xDD;
                                 *iRAM++ = 0x70|(op2 & 0x07);
-                                if(op1Recalc) {         // Ausdruck undefiniert?
-                                    op1Recalc->typ = 0; // ein Byte einsetzen
+                                if(op1Recalc) {         // expression undefined?
+                                    op1Recalc->typ = 0; // add a single byte
                                     op1Recalc->adr = iRAM - RAM;
-                                    op1Recalc = nullptr; // Term eingesetzt
+                                    op1Recalc = nullptr; // processing done
                                 }
                                 *iRAM++ = value1;
                                 break;
                             case 0x281: // n
                                 *iRAM++ = (op1 & 0x01)?0xFD:0xDD;
                                 *iRAM++ = 0x36;
-                                if(op1Recalc) {         // Ausdruck undefiniert?
-                                    op1Recalc->typ = 0; // ein Byte einsetzen
+                                if(op1Recalc) {         // expression undefined?
+                                    op1Recalc->typ = 0; // add a single byte
                                     op1Recalc->adr = iRAM - RAM;
-                                    op1Recalc = nullptr; // Term eingesetzt
+                                    op1Recalc = nullptr; // processing done
                                 }
                                 *iRAM++ = value1;
-                                if(op2Recalc) {         // Ausdruck undefiniert?
-                                    op2Recalc->typ = 0; // ein Byte einsetzen
+                                if(op2Recalc) {         // expression undefined?
+                                    op2Recalc->typ = 0; // add a single byte
                                     op2Recalc->adr = iRAM - RAM;
-                                    op2Recalc = nullptr; // Term eingesetzt
+                                    op2Recalc = nullptr; // processing done
                                 }
                                 *iRAM++ = value2;
                                 break;
                             default:
-                                Error("2.Operand fehlerhaft");
+                                Error("2nd operand wrong");
                             }
                             break;
                     case 0x280: // (n)
                             switch(op2) {
                             case 0x307: // A
                                 *iRAM++ = 0x32;
-                                if(op1Recalc) {         // Ausdruck undefiniert?
-                                    op1Recalc->typ = 1; // zwei Byte einsetzen
+                                if(op1Recalc) {         // expression undefined?
+                                    op1Recalc->typ = 1; // add two bytes
                                     op1Recalc->adr = iRAM - RAM;
-                                    op1Recalc = nullptr; // Term eingesetzt
+                                    op1Recalc = nullptr; // processing done
                                 }
                                 *iRAM++ = value1;
                                 *iRAM++ = value1 >> 8;
                                 break;
                             case 0x312: // HL
                                 *iRAM++ = 0x22;
-                                if(op1Recalc) {         // Ausdruck undefiniert?
-                                    op1Recalc->typ = 1; // zwei Byte einsetzen
+                                if(op1Recalc) {         // expression undefined?
+                                    op1Recalc->typ = 1; // add two bytes
                                     op1Recalc->adr = iRAM - RAM;
-                                    op1Recalc = nullptr; // Term eingesetzt
+                                    op1Recalc = nullptr; // processing done
                                 }
                                 *iRAM++ = value1;
                                 *iRAM++ = value1 >> 8;
@@ -696,10 +696,10 @@ RecalcListP op1Recalc,op2Recalc;
                             case 0x313: // SP
                                 *iRAM++ = 0xED;
                                 *iRAM++ = 0x43|((op2 & 0x03)<<4);
-                                if(op1Recalc) {         // Ausdruck undefiniert?
-                                    op1Recalc->typ = 1; // zwei Byte einsetzen
+                                if(op1Recalc) {         // expression undefined?
+                                    op1Recalc->typ = 1; // add two bytes
                                     op1Recalc->adr = iRAM - RAM;
-                                    op1Recalc = nullptr; // Term eingesetzt
+                                    op1Recalc = nullptr; // processing done
                                 }
                                 *iRAM++ = value1;
                                 *iRAM++ = value1 >> 8;
@@ -708,16 +708,16 @@ RecalcListP op1Recalc,op2Recalc;
                             case 0x331: // IY
                                 *iRAM++ = (op2 & 0x01)?0xFD:0xDD;
                                 *iRAM++ = 0x22;
-                                if(op1Recalc) {         // Ausdruck undefiniert?
-                                    op1Recalc->typ = 1; // zwei Byte einsetzen
+                                if(op1Recalc) {         // expression undefined?
+                                    op1Recalc->typ = 1; // add two bytes
                                     op1Recalc->adr = iRAM - RAM;
-                                    op1Recalc = nullptr; // Term eingesetzt
+                                    op1Recalc = nullptr; // processing done
                                 }
                                 *iRAM++ = value1;
                                 *iRAM++ = value1 >> 8;
                                 break;
                             default:
-                                Error("2.Operand fehlerhaft");
+                                Error("2nd operand wrong");
                             }
                             break;
                     case 0x313: // SP
@@ -748,40 +748,40 @@ RecalcListP op1Recalc,op2Recalc;
                                         *iRAM++ = 0x4B|((op1 & 0x03)<<4);
                                     }
                                 }
-                                if(op2Recalc) {         // Ausdruck undefiniert?
-                                    op2Recalc->typ = 1; // zwei Byte einsetzen
+                                if(op2Recalc) {         // expression undefined?
+                                    op2Recalc->typ = 1; // add two bytes
                                     op2Recalc->adr = iRAM - RAM;
-                                    op2Recalc = nullptr; // Term eingesetzt
+                                    op2Recalc = nullptr; // processing done
                                 }
                                 *iRAM++ = value2;
                                 *iRAM++ = value2 >> 8;
                              } else if (op2 != 0x312 && op2 != 0x330 && op2 != 0x331)
-                                Error("2.Operand fehlerhaft");
+                                Error("2nd operand wrong");
                             break;
                     case 0x330: // IX
                     case 0x331: // IY
                             if((op2 == 0x280)||(op2 == 0x281))  {   // (n), n
                                 *iRAM++ = (op1 & 0x01)?0xFD:0xDD;
                                 *iRAM++ = (op2 == 0x281)?0x21:0x2A;
-                                if(op2Recalc) {         // Ausdruck undefiniert?
-                                    op2Recalc->typ = 1; // zwei Byte einsetzen
+                                if(op2Recalc) {         // expression undefined?
+                                    op2Recalc->typ = 1; // add two bytes
                                     op2Recalc->adr = iRAM - RAM;
-                                    op2Recalc = nullptr; // Term eingesetzt
+                                    op2Recalc = nullptr; // processing done
                                 }
                                 *iRAM++ = value2;
                                 *iRAM++ = value2 >> 8;
                             } else
-                                Error("2.Operand fehlerhaft");
+                                Error("2nd operand wrong");
                             break;
                     default:
-                            Error("Adreßierungsart nicht erlaubt!");
+                            Error("Addressing mode not allowed");
                     }
                 }
                 break;
     case 0x0E:  // PUSH, POP: dreg
                 if(op2)
-                    Error("zu viele Operanden");
-                else if(((op1 & 0xFF0) >= 0x310)&&((op1 & 0xFF0) <= 0x33F)) {   // Doppel-Register?
+                    Error("Too many operands");
+                else if(((op1 & 0xFF0) >= 0x310)&&((op1 & 0xFF0) <= 0x33F)) {   // double register?
                     if((op1 >= 0x310)&&(op1 <= 0x312))
                         *iRAM++ = Op0_24|((op1-0x310)<<4);  // PUSH BC,DE,HL
                     else if(op1 == 0x323)
@@ -791,29 +791,29 @@ RecalcListP op1Recalc,op2Recalc;
                         *iRAM++ = Op0_16;
                     }
                 } else
-                    Error("nur Doppelregister sind möglich!");
+                    Error("only double-registers are allowed");
                 break;
     case 0x0F:  // RR,RL,RRC,RLC,SRA,SLA,SRL
                 if(op2)
-                    Error("nur ein Operand erlaubt!");
+                    Error("Only one operand allowed");
                 else if((op1 & 0xFF0) == 0x300) {           // B,C,D,E,H,L,(HL),A
                     *iRAM++ = 0xCB;
                     *iRAM++ = Op0_24|(op1 & 0x07);
                 } else if((op1 == 0x630)||(op1 = 0x631)) {  // (IX+d), (IY+d)
                     *iRAM++ = (op1 & 0x01)?0xFD:0xDD;
                     *iRAM++ = 0xCB;
-                    if(op1Recalc) {         // Ausdruck undefiniert?
-                        op1Recalc->typ = 0; // ein Byte einsetzen
+                    if(op1Recalc) {         // expression undefined?
+                        op1Recalc->typ = 0; // add a single byte
                         op1Recalc->adr = iRAM - RAM;
-                        op1Recalc = nullptr; // Term eingesetzt
+                        op1Recalc = nullptr; // processing done
                     }
                     *iRAM++ = value1;
                     *iRAM++ = Op0_24|6;
                 } else
-                    Error("Operand hier nicht erlaubt");
+                    Error("operand not allowed");
                 break;
     default:
-                Error("Unbekannte Opcode-Typ!");
+                Error("unknown opcode type");
                 while(c->typ) c++;
     }
     *cp = c;
@@ -821,9 +821,9 @@ RecalcListP op1Recalc,op2Recalc;
 }
 
 /***
- *  Pseudo-Opcode abtesten
+ *  test for pseudo-opcodes
  ***/
-bool     IgnoreUntilIF = false;  // Zeilen bis zum "ENDIF" ignorieren
+bool     IgnoreUntilIF = false;  // ignore all lines till next "ENDIF" (this could be a stack for nesting support)
 
 
 void            DoPseudo(CommandP *cp)
@@ -832,7 +832,7 @@ CommandP    c = *cp;
 CommandP    cptr;
 uint16_t    iPC = PC;
 
-    switch(c++->val) {      // Opcode durchgehen
+    switch(c++->val) {      // all pseudo opcodes
     case 0x100:             // DEFB
                 c--;
                 do {
@@ -840,32 +840,32 @@ uint16_t    iPC = PC;
                     cptr = c;
                     RAM[iPC++] = CalcTerm(&cptr);
                     c = cptr;
-                    if(LastRecalc) {            // Ausdruck undefiniert?
-                        LastRecalc->typ = 0;    // ein Byte einsetzen
+                    if(LastRecalc) {            // expression undefined?
+                        LastRecalc->typ = 0;    // add a single byte
                         LastRecalc->adr = iPC - 1;
                     }
                 } while((c->typ == OPCODE)&&(c->val == ','));
                 break;
     case 0x101:             // DEFM
                 if(c->typ != STRING) {
-                    Error("Kein String bei DEFM!");
+                    Error("DEFM requires a string");
                 } else {
                     char*     sp;
                     c--;
                     do {
-                        c++;                        // Opcode bzw. Komma skippen
-                        sp = (char*)c++->val;         // Wert = Ptr auf den String
+                        c++;                        // skip opcode or comma
+                        sp = (char*)c++->val;       // value = ptr to the string
                         while(*sp)
-                            RAM[iPC++] = *sp++;     // String übertragen
+                            RAM[iPC++] = *sp++;     // transfer the string
                     } while((c->typ == OPCODE)&&(c->val == ','));
                 }
                 break;
     case 0x102:             // DEFS
                 cptr = c;
-                iPC +=  CalcTerm(&cptr);        // PC weitersetzen
+                iPC +=  CalcTerm(&cptr);        // advance the PC
                 c = cptr;
                 if(LastRecalc)
-                    Error("Symbol nicht definiert!");
+                    Error("symbol not defined");
                 break;
     case 0x103:             // DEFW
                 c--;
@@ -873,10 +873,10 @@ uint16_t    iPC = PC;
                     uint32_t val;
                     c++;
                     cptr = c;
-                    val = CalcTerm(&cptr);      // Ausdruck auswerten
+                    val = CalcTerm(&cptr);      // evaluate the express
                     c = cptr;
-                    if(LastRecalc) {            // Ausdruck undefiniert?
-                        LastRecalc->typ = 1;    // zwei Byte einsetzen
+                    if(LastRecalc) {            // expression undefined?
+                        LastRecalc->typ = 1;    // add two bytes
                         LastRecalc->adr = iPC;
                     }
                     RAM[iPC++] = val >> 8;
@@ -884,34 +884,34 @@ uint16_t    iPC = PC;
                 } while((c->typ == OPCODE)&&(c->val == ','));
                 break;
     case 0x104:             // END
-                if(IgnoreUntilIF)                   // dann nicht mehr übersetzen
-                    Error("IF ohne ENDIF!");
-                Error("Ende vom Sourcetext erreicht");
+                if(IgnoreUntilIF)
+                    Error("IF without ENDIF");
+                Error("Reached the end of the source code -> exit");
                 exit(0);
     case 0x106:             // ORG
                 cptr = c;
-                iPC = CalcTerm(&cptr);              // PC setzen
+                iPC = CalcTerm(&cptr);              // set the PC
                 c = cptr;
                 if(LastRecalc)
-                    Error("Symbol nicht definiert!");
+                    Error("symbol not defined");
                 break;
     case 0x107:             // IF
                 cptr = c;
-                if(!CalcTerm(&cptr))                // IF-Bedinung false?
-                    IgnoreUntilIF = true;           // dann nicht mehr übersetzen
+                if(!CalcTerm(&cptr))                // IF condition false?
+                    IgnoreUntilIF = true;           // then ignore the next block
                 c = cptr;
                 break;
     case 0x108:             // ENDIF
-                IgnoreUntilIF = false;              // ab hier stets übersetzen
+                IgnoreUntilIF = false;              // never ignore from here on
                 break;
     case 0x109:             // ELSE
-                IgnoreUntilIF = !IgnoreUntilIF;     // Zeilen-Übersetzen-Flag toggeln
+                IgnoreUntilIF = !IgnoreUntilIF;     // flip the condition
                 break;
     case 0x10A:             // PRINT
                 if(c->typ != STRING)
-                    Error("Kein String bei PRINT!");
+                    Error("PRINT requires a string parameter");
                 else
-                    puts((char*)c++->val);            // Message ausgeben
+                    puts((char*)c++->val);            // print a message
                 break;
     }
     *cp = c;
@@ -919,7 +919,7 @@ uint16_t    iPC = PC;
 }
 
 /***
- *  Zeile übersetzen
+ *  Compile a single line
  ***/
 void        CompileLine(void)
 {
@@ -928,84 +928,84 @@ CommandP        cptr;
 SymbolP         s;
 uint16_t        val;
 
-    if(!c->typ) return;                 // Leerzeile => raus
-    if((c->typ == SYMBOL)&& !IgnoreUntilIF) {           // ein Symbol am Zeilenanfang und _kein_ IF?
-        s = (SymbolP)c->val;            // Wert = Symbol-Ptr
+    if(!c->typ) return;                 // empty line => done
+    if((c->typ == SYMBOL)&& !IgnoreUntilIF) {           // symbol at the beginning, but not IF?
+        s = (SymbolP)c->val;            // value = ptr to the symbol
         if(s->defined) {
-            Error("Symbol bereits definiert");
+            Error("symbol already defined");
             return;
         }
-        c++;                            // ein Command weiter
+        c++;                            // next command
         if((c->typ == OPCODE)&&(c->val == ':'))
-            c++;                        // eventuellen ':' überspringen
+            c++;                        // ignore a ":" after a symbol
         if((c->typ == OPCODE)&&(c->val == 0x105)) { // EQU?
-            c++;                        // EQU überspringen
+            c++;                        // skip EQU
             cptr = c;
-            s->val = CalcTerm(&cptr);   // Ausduck ausrechnen
+            s->val = CalcTerm(&cptr);   // calculate the expression
             c = cptr;
             if(LastRecalc)
-                Error("Symbol in Formel nicht definiert");
-            s->defined = true;          // Symbol definiert
+                Error("symbol not defined in a formula");
+            s->defined = true;          // symbol now defined
             if(c->typ != ILLEGAL) {
-                Error("Daten nach EQU!");
+                Error("EQU is followed by illegal data");
                 return;
             }
         } else {
-            s->val = PC;                // Adresse = aktueller PC
-            s->defined = true;          // Symbol definiert
+            s->val = PC;                // adresse = current PC
+            s->defined = true;          // symbol is defined
         }
-        while(s->recalc) {              // vom Symbol abhängige Ausdrücke?
+        while(s->recalc) {              // do expressions depend on the symbol?
             RecalcListP r = s->recalc;
             CommandP    saveC;
             int32_t     value;
 
-            s->recalc = r->next;        // zum nächsten Symbol vorrücken
+            s->recalc = r->next;        // to the next symbol
             saveC = r->c;
-            value = CalcTerm(&(r->c));  // Formel (mit jetzt def. Symbol) erneut ausrechnen
-            if(!LastRecalc) {           // Ausdruck nun gültig (oder gar noch ein Symbol?)
+            value = CalcTerm(&(r->c));  // Recalculate the symbol (now with the defined symbol)
+            if(!LastRecalc) {           // Is the expression now valid? (or is there another open dependency?)
                 uint16_t adr = r->adr;
                 switch(r->typ) {
-                case 0x00:              // ein Byte einsetzen
+                case 0x00:              // add a single byte
                             RAM[adr] = value;
                             break;
-                case 0x01:              // zwei Byte einsetzen
+                case 0x01:              // add two bytes
                             RAM[adr++] = value;
                             RAM[adr] = value>>8;
                             break;
-                case 0x02:              // PC-rel-Byte einsetzen
+                case 0x02:              // PC-rel-byte
                             RAM[adr] = value - (adr + 1);
                             break;
-                default:    Error("unbekannter Recalc-Typ!");
+                default:    Error("unknown recalc type");
                 }
-            } else {                    // Ausdruck immer noch nicht zu berechnen
-                LastRecalc->typ = r->typ;   // Typ übertragen
-                LastRecalc->adr = r->adr;   // Adresse übertragen
+            } else {                    // Expression still can't be calculated
+                LastRecalc->typ = r->typ;   // transfer the type
+                LastRecalc->adr = r->adr;   // transfer the address
             }
-            free(saveC);                // Formel freigeben
-            free(r);                    // Recalc-Term freigeben
+            free(saveC);                // release the formula
+            free(r);                    // release the Recalc term
         }
     }
-    if(IgnoreUntilIF) {                 // innerhalb eines IFs?
+    if(IgnoreUntilIF) {                 // inside an IFs?
         if(c->typ == OPCODE) {
             switch(c->val) {
-            case 0x108:     // ENDIF erreicht?
-                    IgnoreUntilIF = false;          // Zeilen wieder übersetzen
+            case 0x108:     // ENDIF reached?
+                    IgnoreUntilIF = false;          // start compiling
                     break;
-            case 0x109:     // ELSE erreicht?
-                    IgnoreUntilIF = !IgnoreUntilIF; // Zeilen-Übersetzen-Flag toggeln
+            case 0x109:     // ELSE reached?
+                    IgnoreUntilIF = !IgnoreUntilIF; // toggle IF flag
                     break;
             }
         }
     } else
-        while(c->typ) {                 // bis zum Zeilenende scannen
+        while(c->typ) {                 // scan to the end of the line
             val = c->val;
-            if((val < 0x100)||(val > 0x2FF))    // kein Opcode bzw. Pseudo-Opcode?
-                Error("Illegales Zeichen");     // => Fehler!
+            if((val < 0x100)||(val > 0x2FF))    // no Opcode or Pseudo-Opcode?
+                Error("Illegal token");         // => error
             cptr = c;
             if((val >= 0x100)&&(val <= 0x1FF))  // Pseudo-Opcode
                 DoPseudo(&cptr);
             else
-                DoOpcode(&cptr);                // Opcode scannen
+                DoOpcode(&cptr);                // opcode
             c = cptr;
         }
 }

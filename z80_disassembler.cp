@@ -241,7 +241,7 @@ uint8_t len = 1;
                 }
                 break;
     }
-    return(len);
+    return len;
 }
 
 void        ParseOpcodes(uint32_t adr)
