@@ -19,8 +19,11 @@ typedef struct {
     uint16_t   p;          // Parameter
 } ShortSym;
 
-static const ShortSym    Pseudo[] = {    { 0x100,"DEFB",0x0000}, { 0x101,"DEFM",0x0000},{ 0x102,"DEFS",0x0000},
-                            { 0x103,"DEFW",0x0000}, { 0x109,"ELSE",0x0000},{ 0x104,"END",0x0000},
+static const ShortSym    Pseudo[] = {    { 0x100,"DEFB",0x0000}, { 0x100,"DB",0x0000},
+                            { 0x101,"DEFM",0x0000}, { 0x101,"DM",0x0000},
+                            { 0x102,"DEFS",0x0000}, { 0x102,"DS",0x0000},
+                            { 0x103,"DEFW",0x0000}, { 0x103,"DW",0x0000},
+                            { 0x109,"ELSE",0x0000}, { 0x104,"END",0x0000},
                             { 0x108,"ENDIF",0x0000},{ 0x105,"EQU",0x0000}, { 0x107,"IF",0x0000},
                             { 0x106,"ORG",0x0000},  { 0x10A,"PRINT",0x0000} };
 // Typ: (+ 0x200)
