@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-I.
+CFLAGS=-I. -Wall
 DEPS = z80_assembler.h
 
 %.o: %.cp $(DEPS)

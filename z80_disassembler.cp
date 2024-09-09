@@ -71,7 +71,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <strings.h>
+#include <string.h>
+#include <stdint.h>
 
 #define CODESIZE        8192L           // 8K Programmcode
 #define FUTURA_189      1               // Sprungtabellen-Sprünge für Futura Aquariencomputer ROM V1.89
