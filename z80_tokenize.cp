@@ -14,9 +14,9 @@ void        InitSymTab(void);
 
 
 typedef struct {
-    int16_t    id;         // ID vom Symbol
-    const char *s;         // String
-    uint16_t   p;          // Parameter
+    int16_t    id;         // ID for the symbol
+    const char *s;         // string
+    uint16_t   p;          // additional parameter
 } ShortSym;
 
 static const ShortSym    Pseudo[] = {    { 0x100,"DEFB",0x0000}, { 0x100,"DB",0x0000},
@@ -26,20 +26,20 @@ static const ShortSym    Pseudo[] = {    { 0x100,"DEFB",0x0000}, { 0x100,"DB",0x
                             { 0x109,"ELSE",0x0000}, { 0x104,"END",0x0000},
                             { 0x108,"ENDIF",0x0000},{ 0x105,"EQU",0x0000}, { 0x107,"IF",0x0000},
                             { 0x106,"ORG",0x0000},  { 0x10A,"PRINT",0x0000} };
-// Typ: (+ 0x200)
+// type: (+ 0x200)
 // 0x00 : IN,OUT
-// 0x01 : 1 Byte Opcode, keine Parameter
-// 0x02 : 2 Byte Opcode, keine Parameter
-// 0x03 : 2 Byte Opcode, (HL) nötig
-// 0x04 : 1.Parameter = Bitno., 2.Parameter = <ea> (BIT,RES,SET)
-// 0x05 : IM (ein Parameter: 0,1,2)
+// 0x01 : 1 byte opcode, no parameter
+// 0x02 : 2 byte opcode, no parameter
+// 0x03 : 2 byte opcode, (HL) required
+// 0x04 : 1.parameter = bit number, 2.parameter = <ea> (BIT,RES,SET)
+// 0x05 : IM (one parameter: 0,1,2)
 // 0x06 : ADD,ADC,SUB,SBC,AND,XOR,OR,CP
-// 0x07 : INC, DEC, wie 0x06 nur ohne absolute Adr.
-// 0x08 : JP, CALL, JR (Achtung! Unterschiedliche <ea>!)
-// 0x09 : RET (c oder nichts)
+// 0x07 : INC, DEC, like 0x06 with absolute address
+// 0x08 : JP, CALL, JR (Warning! Different <ea>!)
+// 0x09 : RET (c or nothing)
 // 0x0A : RST (00,08,10,18,20,28,30,38)
 // 0x0B : DJNZ
-// 0x0C : EX: (SP),dreg oder DE,HL oder AF,AF'
+// 0x0C : EX: (SP),dreg or DE,HL or AF,AF'
 // 0x0D : LD
 // 0x0E : PUSH, POP: dreg
 // 0x0F : RR,RL,RRC,RLC,SRA,SLA,SRL
@@ -83,8 +83,8 @@ static const ShortSym    Conditions[] = {/*{ 0x403,"C",0x0000},*/{ 0x407,"M",0x0
 
 
 typedef struct {
-    const ShortSym    *table;     // Ptr auf eine Opcode-Liste
-    int16_t     tablesize;  // Länge der Tabelle in Byte
+    const ShortSym    *table;     // ptr to an opcode list
+    int16_t     tablesize;  // length of the table in bytes
 } TokenTable;
 
 static const TokenTable  Token[] = { { Pseudo,sizeof(Pseudo)/sizeof(ShortSym) },
@@ -94,11 +94,11 @@ static const TokenTable  Token[] = { { Pseudo,sizeof(Pseudo)/sizeof(ShortSym) },
                         { 0,0 }
                         };
 
-Command     Cmd[80];            // eine tokenisierte Zeile
-SymbolP     SymTab[256];        // Symboltabelle (nach unterem Hashbyte geteilt)
+Command     Cmd[80];            // a tokenized line
+SymbolP     SymTab[256];        // symbol table (split with the hash byte)
 
 /***
- *  Hash-Wert über einen String berechnen
+ *  calculate a simple hash for a string
  ***/
 uint16_t CalcHash(const char *name)
 {
@@ -115,35 +115,35 @@ uint8_t  c;
             hash_val ^= i;
 #endif
     }
-    return(hash_val);
+    return hash_val;
 }
 
 /***
- *  Symbol suchen, wenn nicht gefunden automatisch eintragen
+ *  search for a symbol, generate one if it didn't already exist.
  ***/
 SymbolP     FindSymbol(const char* name)
 {
-uint16_t    hash = CalcHash(name);      // Hash-Wert über den Namen
+uint16_t    hash = CalcHash(name);      // hash value for the name
 uint8_t     hashb = hash;
 SymbolP     s;
 
-    s = SymTab[hashb];                  // Ptr auf das erste Symbol
+    s = SymTab[hashb];                  // ptr to the first symbol
     while(s) {
-        if(s->hash == hash)             // Stimmt der Hashwert?
-            if(!strcmp(s->name,name)) return(s);// Symbol gefunden
-        s = s->next;                    // zum nächsten Symbol
+        if(s->hash == hash)             // search for a matching hash
+            if(!strcmp(s->name,name)) return s; // found the symbol?
+        s = s->next;                    // to the next symbol
     }
-    s = (SymbolP)malloc(sizeof(Symbol)); // Symbol allozieren
-    if(!s) return nullptr;              // Speicher reicht nicht!
+    s = (SymbolP)malloc(sizeof(Symbol)); // allocate memory for a symbol
+    if(!s) return nullptr;              // not enough memory
     memset(s,0,sizeof(Symbol));
-    s->next = SymTab[hashb]; SymTab[hashb] = s; // Symbol in die Liste einklinken
+    s->next = SymTab[hashb]; SymTab[hashb] = s; // link the symbol into the list
     s->hash = hash;
-    strcpy(s->name,name);               // Namen kopieren
-    return(s);
+    strcpy(s->name,name);               // and copy the name
+    return s;
 }
 
 /***
- *  Symboltabelle initialisieren
+ *  initialize the symbol table
  ***/
 void        InitSymTab(void)
 {
@@ -152,158 +152,159 @@ SymbolP     s;
 const TokenTable  *t;
 
     for(i=0;i<256;i++)
-        SymTab[i] = nullptr; // alle Symboleinträge zurücksetzen
+        SymTab[i] = nullptr; // reset all entries
 
-    for(t = Token;t->table;t++) {           // alle Token-Tabellen durchgehen
-        for(i=0;i<t->tablesize;i++) {       // und für jede Tabelle alle Tokens
-            s = FindSymbol(t->table[i].s);  // Opcode in die Tabelle eintragen
+    for(t = Token;t->table;t++) {           // check all token tables
+        for(i=0;i<t->tablesize;i++) {       // and all tokens for a single table
+            s = FindSymbol(t->table[i].s);  // add all opcodes to the symbol table
             s->type = t->table[i].id;       // ID (<> 0!)
-            s->val = ((int32_t)t->table[i].p<<16)|s->type; // Parameter und ID gleich zusammenpacken
+            s->val = ((int32_t)t->table[i].p<<16)|s->type; // merge parameter and id
         }
     }
 }
 
+// Is this an alphanumeric character _or_ an unterline, which is a valid symbol
 int isalnum_(char c)
 {
     return isalnum(c) || c == '_';
 }
 
 /***
- *  eine Zeile tokenisieren
+ *  tokenize a single line
  ***/
 void        TokenizeLine(char* sp)
 {
-char*         sp2;
+char        *sp2;
 char        c;
 char        stemp[MAXLINELENGTH];
 char        maxc;
 int16_t     base;
-int16_t     dollar;
+bool        dollar;
 Type        typ;
 long        val;
 char        AktUpLine[MAXLINELENGTH];
-char*         AktLine = sp;           // Zeilenanfang merken
-CommandP    cp = Cmd;               // Ptr auf den Command-Buffer
+char        *AktLine = sp;          // remember the beginning of the line
+CommandP    cp = Cmd;               // ptr to the command buffer
 
     sp2=AktUpLine;
-    while((*sp2++ = toupper(*sp++)) != 0) ; // in Großbuchstaben wandeln
+    while((*sp2++ = toupper(*sp++)) != 0) ; // conver to capital letters
     sp = AktUpLine;
-    while(1) {                      // gesamten String parsen
-        while((isspace(c = *sp++)) != 0) ;  // Leerzeichen werden überlesen
-        if(c == ';') break;         // ab hier: ein Kommentar => fertig
-        if(c == 0) break;           // Zeilenende => fertig
-        typ = ILLEGAL;              // kein gültiger Typ
-        dollar = 0;
-        if (c == '$') {             // PC oder start einer Hex-Zahl
+    while(1) {                      // parse the whole string
+        while((isspace(c = *sp++)) != 0) ;  // ignore spaces
+        if(c == ';') break;         // a comment => ignore the rest of the line
+        if(c == 0) break;           // end of line => done
+        typ = ILLEGAL;              // default: an illegal type
+        dollar = false;
+        if (c == '$') {             // PC or the beginning of a hex number
             if (isalnum(*sp) && *sp <= 'F') {
                 base = 16;
                 c = *sp++;
             } else {
-                dollar = 1;
+                dollar = true;
             }
         }
         if (dollar) {
             typ = NUM;
             val = PC;
         } else if(isalnum_(c)) {    // A…Z, a…z, 0-9
-            sp2 = stemp;            // Ptr auf den Anfang
-            maxc = 0;               // maximales Zeichen
-            base = 0;               // ein String
+            sp2 = stemp;            // ptr to the beginning
+            maxc = 0;               // highest ASCII character
+            base = 0;               // a string
             do {
                 *sp2++ = c;
-                if(isalnum_(*sp)) {  // noch nicht das letzte Zeichen?
+                if(isalnum_(*sp)) { // not the last character?
                     if(c > maxc)
-                        maxc = c;   // maximales Zeichen merken
-                } else {            // letztes Zeichen!
-                    if(stemp + 1 != sp2) {          // wenigstens eine Ziffer nötig…
-                        if(c == 'D') if(maxc <= '9') base = 10; // "D" hinter der Zahl: Dezimal
-                        if(c == 'H') if(maxc <= 'F') base = 16; // "H" hinter der Zahl: Hexadezimal
-                        if(c == 'B') if(maxc <= '1') base = 2;  // "B" hinter der Zahl: Binär
+                        maxc = c;   // remember the highest ASCII character
+                } else {            // last character
+                    if(stemp + 1 != sp2) {          // at least one character
+                        if(c == 'D') if(maxc <= '9') base = 10; // "D" after a number: decimal number
+                        if(c == 'H') if(maxc <= 'F') base = 16; // "H" after a number: hexadecimal number
+                        if(c == 'B') if(maxc <= '1') base = 2;  // "B" after a number: binary number
                         if(base > 0) sp2--;
                     }
                     if(c >= '0' && c <= '9') if(maxc <= '9') base = 10;
                 }
-                c = *sp++;          // Folgezeichen holen
+                c = *sp++;          // get the next character
             } while(isalnum_(c));
             sp--;
             *sp2 = 0;
-            if(base > 0) {                  // eine gültige Zahl?
+            if(base > 0) {                  // a valid number?
                 sp2 = stemp;
                 val = 0;
-                while((c = *sp2++) != 0) {         // Wert einlesen
-                    val *= base;            // mal Zahlenbasis
+                while((c = *sp2++) != 0) {      // read the value
+                    val *= base;                // multiply with the number base
                     val += (c <= '9')?c - '0':c - 'A' + 10;
                 }
-                typ = NUM;                  // Typ: eine Zahl
+                typ = NUM;                      // type: a number
             } else {
-                if(*stemp >= 'A') {             // erstes Zeichen keine Ziffer?
-                    SymbolP sym = FindSymbol(stemp);    // Symbol,Opcodes, etc suchen, ggf. eintragen
-                    if(!sym) break;             // Fehler =>
-                    if(!sym->type) {            // Typ = Symbol?
+                if(*stemp >= 'A') {             // first character not a digit?
+                    SymbolP sym = FindSymbol(stemp);    // an opcode or a symbol
+                    if(!sym) break;             // error (out of memory)
+                    if(!sym->type) {            // typ = symbol?
                         typ = SYMBOL;
-                        val = (long)sym;        // Wert = Symboladresse
-                        if(!sym->first) {       // Symbol bereits existent =>
-                            sym->first = true;  // Symbol implizit definiert
-                            sym->defined = false;// Symbol noch nicht definiert
+                        val = (long)sym;        // value = address of the symbol ptr
+                        if(!sym->first) {       // symbol already exists?
+                            sym->first = true;  // no, then implicitly define it
+                            sym->defined = false;// symbol value not defined
                         }
                     } else {
-                        typ = OPCODE;           // ein Opcode
-                        val = sym->val;         // Parameter, ID
+                        typ = OPCODE;           // an opcode
+                        val = sym->val;         // parameter, ID
                     }
                 } else
-                    printf("Symbole dürfen nicht mit Ziffern anfangen!\n");
+                    Error("symbols can't start with digits");
             }
         } else {
             typ = OPCODE;
             switch(c) {
             case '>':
                 if(*sp == '>') {
-                    val = 0x120;            // >> erkannt
+                    val = 0x120;            // >> recognized
                     sp++;
                 }
                 break;
             case '<':
                 if(*sp == '<') {
-                    val = 0x121;            // << erkannt
+                    val = 0x121;            // << recognized
                     sp++;
                 }
                 break;
             case '=':
-                val = 0x105;                // = entspricht EQU
+                val = 0x105;                // = matches EQU
                 break;
-            case '\'':  // ASCII-Zeichen in ''
-                val = AktLine[sp - AktUpLine];  // ungewandeltes ASCII-Zeichen
+            case '\'':  // an ASCII character with '.'
+                val = AktLine[sp - AktUpLine];  // not capitalized ASCII character
                 if((!val)||(sp[1]!='\'')) {
                     val = '\'';
                 } else {
                     sp++;
-                    typ = NUM;              // Typ: eine Zahl
+                    typ = NUM;              // typ: a number
                     if(*sp++ != '\'') break;
                 }
                 break;
-            case '\"':  // ASCII-String in ""
+            case '\"':  // an ASCII string with "..."
                 sp2 = sp;
-                base = sp - AktUpLine;      // Offset auf die Zeile
-                while(*sp2++ != '\"');      // Stringende suchen
-                sp2 = (char *)malloc(sp2 - sp); // Stringbuffer allozieren
+                base = sp - AktUpLine;      // offset to the line
+                while(*sp2++ != '\"');      // search for the end of the string
+                sp2 = (char *)malloc(sp2 - sp); // allocate a buffer for the string
                 val = (long)sp2;
                 if(!sp2) break;
                 else {
-                    while(*sp++ != '\"')    // bis zum Ende der Anführungszeichen
-                        *sp2++ = AktLine[base++];   // übertragen
+                    while(*sp++ != '\"')    // end of the string found?
+                        *sp2++ = AktLine[base++];   // copy characters
                     *sp2 = 0;
                 }
-                typ = STRING;               // Typ: ein String
+                typ = STRING;               // type: a string
                 break;
             default:
                 val = c;
             }
         }
 #if DEBUG
-        printf("Typ:%2.2X Wert:%8.8lX\n",typ,val);
+        printf("type:%2.2X value:%8.8lX\n",typ,val);
 #endif
-        cp->typ = typ; cp->val = val;       // in den Command-Buffer übertragen
+        cp->typ = typ; cp->val = val;      // copy into the command buffer
         cp++;
     }
-    cp->typ = ILLEGAL; cp->val = 0;        // Command-Buffer abschließen
+    cp->typ = ILLEGAL; cp->val = 0;        // terminate the command buffer
 }

@@ -6,53 +6,53 @@
 
 typedef enum {
     ILLEGAL,
-    NUM,            // eine normale Zahl
-    OPCODE,         // ein Opcode (0…255 = ASCII-Code, >=256 = Opcodes [s.u.])
-    SYMBOL,         // ein Symbol
-    STRING          // ein String
+    NUM,            // a normal number
+    OPCODE,         // an opcode (0…255 = ASCII code, >=256 = opcodes [see below])
+    SYMBOL,         // a symbol
+    STRING          // a string
 } Type;
 
-// Ein kodierter Opcode
+// encoded opcode
 typedef struct {
-    Type    typ;        // Typ
-    long    val;        // Wert
+    Type    typ;
+    long    val;
 } Command,*CommandP;
 
-// Ausdruck für Backpatching
+// Expression for backpatching
 typedef struct RecalcList {
-    struct RecalcList   *next;  // Folgeeintrag in der Liste
-    uint16_t            typ;    // Wie soll der Ausdruck eingesetzt werden
-                                // 0 = 1 Byte
-                                // 1 = 2 Byte (low/high!)
-                                // 2 = 1 Byte, PC-Relativ zur Einsetzadresse + 1
-    uint16_t            adr;    // Einsetzadresse
-    CommandP            c;      // Ptr auf Formel
+    struct RecalcList   *next;  // next entry in the list
+    uint16_t            typ;    // How should the expression be patched in
+                                // 0 = 1 byte
+                                // 1 = 2 byte (low/high!)
+                                // 2 = 1 byte, PC relative to patch address + 1
+    uint16_t            adr;    // patched address
+    CommandP            c;      // ptr to the formular
 } RecalcList,*RecalcListP;
 
-// Symboltabellen-Eintrag
+// entry for the symbol table
 typedef struct Symbol {
-    struct Symbol   *next;      // Ptr auf das nächste Symbol
-    uint16_t        hash;       // Hashwert über den Symbolnamen
-    uint16_t        type;       // Typ: 0 = Symbol; <>0 = Opcode, etc.
-    char            name[MAXSYMBOLNAME+1];  // Symbolname
-    int32_t         val;        // Wert vom Symbol
-    unsigned        defined : 1;// True, wenn Symbol definiert
-    unsigned        first : 1;  // True, wenn Symboleintrag bereits gültig
-    RecalcListP     recalc;     // vom Symbol abhängige Ausdrücke (Backpatching!)
+    struct Symbol   *next;      // next symbol
+    uint16_t        hash;       // hash value for the symbol name
+    uint16_t        type;       // typ: 0 = symbol; <>0 = opcode, etc.
+    char            name[MAXSYMBOLNAME+1];  // name of the symbol
+    int32_t         val;        // value of the symbol
+    unsigned        defined : 1;// true, if symbol is defined
+    unsigned        first : 1;  // true, if symbol is already valid
+    RecalcListP     recalc;     // expressions depended on this symbol (for backpatching)
 } Symbol,*SymbolP;
 
-extern Command      Cmd[80];            // eine tokenisierte Zeile
-extern SymbolP      SymTab[256];        // Symboltabelle (nach oberem Hashbyte geteilt)
-extern uint16_t     PC;                 // aktuelle Adresse
-extern uint8_t      *RAM;               // 64K-RAM vom Z80
+extern Command      Cmd[80];            // a tokenized line
+extern SymbolP      SymTab[256];        // symbol table (split by the upper hash value)
+extern uint16_t     PC;                 // current address
+extern uint8_t      *RAM;               // 64K RAM of the Z80
 
-extern RecalcListP  LastRecalc;         // zum Einsetzen des Typs bei inkompletten Formeln
+extern RecalcListP  LastRecalc;         // to patch the type for incomplete formulas
 
-void        Error(const char* s);       // Fehlermeldung ausgeben
+void        Error(const char* s);       // print a fatal error message
 
-int32_t     CalcTerm(CommandP *c);      // eine Formel ausrechnen
+int32_t     CalcTerm(CommandP *c);      // calculate a formula
 
-void        CompileLine(void);          // für die Compilierung
+void        CompileLine(void);          // compile a line into machine code
 
-void        InitSymTab(void);           // für die Tokenisierung
-void        TokenizeLine(char* sp);
+void        InitSymTab(void);           // initialize the symbol table
+void        TokenizeLine(char* sp);		// convert a line into tokens
