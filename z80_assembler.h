@@ -2,6 +2,8 @@
 #define MAXSYMBOLNAME   32
 #define DEBUG           0
 
+#include <cstdint>
+
 typedef enum {
     ILLEGAL,
     NUM,            // eine normale Zahl
