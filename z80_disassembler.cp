@@ -1,72 +1,25 @@
 /***
  *  Z80 Disassembler
  *
- *  Dieser kleine Disassembler für Z80-Code ist an einem Nachmittag entstanden.
- *  Es gibt keine Benutzeroberfläche! Größe des zu disassemblierenden ROMs und
- *  eventuelle weitere Sprünge sind direkt im Programmcode zu ändern!!!
- *
- *  Er läßt sich unter Think C 5.0 auf dem Macintosh übersetzen. Wer keinen
- *  Macintosh hat, darf zum einen die Umlaute im Sourcecode wandeln, und
- *  — sofern man keinen C++ Compiler hat — die Kommentare von \\ umstellen.
- *
- *  Ferner wird eine ANSI-Library (Dateifunktionen) benötigt. Aber auch das
- *  kann man leicht umstellen (siehe main()). Hier wird stets die Datei “EPROM”
- *  geladen. Kann man natürlich ändern…
- *
- *  Das Programm besteht aus zwei Teilen:
- *  1.  Analyse des Programms. Hierbei wird das Programm ab den verschiedenen
- *      Hardware-Vektoren des Z80 (RST-Befehle, NMI) durchgegangen und alle Spünge
- *      durch ein rekursives Unterprogramm (ParseOpcodes) ausgeführt. Dabei werden
- *      gefundene Opcodes in einem Array (OpcodesFlags) markiert. Auch Adressen, die
- *      als Sprungziele verwendet werden, sind dort markiert. Der Disassembler
- *      kann später also genau erkennen, ob er Daten oder Programmcode vor sich hat!
- *      Dabei gibt es natürlich Ausnahmen, die er nicht erkennen kann:
- *      a)  selbstmodifizierender Code. Sowas sollte in einem ROM normalerweise
- *          nicht auftreten.
- *      b)  berechnete Sprünge mit JP (IY), JP (IX) oder JP (HL). Auch hier kann
- *          der Parser die Sprünge nicht erkennen. Man landet im MacsBug, wenn
- *          so ein Sprung gefunden wurde. Wer das Symbol DEBUGGER auf 0 setzt,
- *          hat Ruhe…
- *      c)  Sprungtabellen. Diese treten leider recht häufig auf. Einzige Lösung:
- *          Programm disassemblieren und ansehen. Wenn man die Sprungtabellen
- *          gefunden hat, kann man — wie bei meinem Futura Aquariencomputer ROMs
- *          geschehen — weitere ParseOpcodes() Aufrufe einfügen. Wie und wo das
- *          geht, steht in main()
- *      d)  Unbenutzer Code. Code der nie angesprungen wird, wird natürlich durch
- *          die Analyse nicht gefunden. I.d.R. ist es um solchen Code auch nicht
- *          schade :-) Häufig wird der "unbenutzte" Code jedoch über eine Sprungtabelle
- *          angesprungen! Also Achtung!
- *  2.  Disassemblieren des Programms. Mit Hilfe der beim Parsen erzeugten
- *      OpcodesFlags-Tabelle wird nun ein Listing erzeugt. Das Disassemble-Unterprogramm
- *      ist leider recht "länglich". Es disassembliert einen Opcode ab einer Adresse
- *      im ROM in einen Buffer. Ich habe es in einem Stück runtergeschrieben (an Hand
- *      einer Opcodeliste). Inbesondere die Verwaltung von IX und IY kann man sicher
- *      stark kürzen…
- *
- *  Das Unterprogramm OpcodeLen() ermittelt die Länge eines Opcodes in Bytes. Es
- *  wird während des Parsens und während des Disassemblierens benötigt.
- *
- *  Der Disassembler kennt übrigens _keine_ versteckten Opcodes des Z80. Ich hatte
- *  keine Tabelle darüber. In meinem Fall waren die auch gar nicht nötig… Wer so
- *  eine Liste hat, kann den Disassembler ja mal ergänzen.
- *
- *  Wenn übrigens ein Unterprogramm eine "Adresse" im Z80-Code erwartet, so ist
- *  damit ein _Offset_ auf das Array mit dem Code gemeint! Pointer sind es NICHT!
- *  Longs sind übrigens unnötig, denn ein Z80 hat ja nur 64K…
- *
- *  In main() kann man anstatt einer Disassemblierung mit Labeln auch eine mit
- *  Adresse und Hexdump vor dem Opcode einstellen. Sehr praktisch um evtl. Fehler
- *  im Disassembler zu finden oder beim Erstellen einer Variablenliste.
- *
- *
- *  Das Programm ist Freeware. Es darf _nicht_ als Basis für ein kommerzielles
- *  Produkt genommen werden! Ich übernehme keine Haftung für Schäden, die direkt
- *  oder indirekt durch die Benutzung dieses Programms entstehen!
- *
- *  Wer mich erreichen will, kann dies am besten in unserer Firmen-Mailbox:
- *
- *  Sigma-Soft-Mailbox
- *  ©1992 ∑-Soft, Markus Fritze
+I created this small disassembler for a Z80 cpu at one afternoon. It is a commandline tool. The size of the ROM and entry points have to be coded directly in the sourcecode.
+
+Every ANSI C++ compiler should compile this program. It only uses some ANSI C functions (look into ''main()'') for loading a file called "EPROM".
+
+The program has two parts:
+
+Analyze the code. The disassembler tries to analyze what part of the binary data is program code and what part is data. It start with all hardware vectors of the Z80 (''RST'' opcodes, NMI) and parses all jumps via a recursive analyze via ''ParseOpcode()''. Every opcode is marked in an array (''OpcodesFlags''). There are some exceptions, the parser can't recognize:
+self modifying code. A ROM shouldn't contain such code.
+calculated branches with ''JP (IY)'', ''JP (IX)'' or ''JP (HL)''. The parser can't recognize them, either.
+Jumptables. These are quite common in a ROM. Only solution: disassemble the program and look into the code. If you found a jumptable - like on my Futura aquarium computer - insert some more calls of ''ParseOpcodes()''.
+Unused code. Code that is never called by anybody, could not be found. Make sure that the code is not called via a jump table!
+Disassembly of the code. With the help of the OpcodesFlags table the disassembler now creates the output. This subroutine is quite long. It disassembles one opcode at a specific address in ROM into a buffer. It is coded directly from a list of Z80 opcodes, so the handling of ''IX'' and ''IY'' could be optimized quite a lot.
+The subroutine ''OpcodeLen()'' returns the size of one opcode in bytes. It is called while parsing and while disassembling.
+
+The disassembler recognizes no hidden opcodes (the assembler does!). I didn't had a table for them while writing the disassembler and they were not needed anyway.
+
+If a routine wanted an "address" to the Z80 code, it is in fact an offset to the array of code. No pointers! Longs are not necessary for a Z80, because the standard Z80 only supports 64k.
+
+This program is freeware. It is not allowed to be used as a base for a commercial product!
  ***/
 
 #include <stdio.h>
@@ -74,16 +27,15 @@
 #include <string.h>
 #include <stdint.h>
 
-#define CODESIZE        8192L           // 8K Programmcode
-#define FUTURA_189      1               // Sprungtabellen-Sprünge für Futura Aquariencomputer ROM V1.89
-#define DEBUGGER        0               // wenn 1, dann landet man bei berechneten
-                                        // Sprüngen im Debugger. Siehe auch oben.
+#define CODESIZE        8192L           // 8K program code
+#define FUTURA_189      1               // jump table for the Futura Aquariencomputer ROM V1.89 https://github.com/sarnau/FuturaAquariumComputer
+#define DEBUGGER        0               // if 1, then break if a jump table is detected
 
-// Speicher für den Programmcode
+// memory for the code
 uint8_t Opcodes[CODESIZE];
 
-// Flag pro Speicherstelle, ob Opcode, Operand, Daten
-// Bit 4 = 1, d.h. hier wird per JR o.ä. hingesprungen.
+// Flag per memory cell: opcode, operand or data
+// bit 4 = 1, a JR or similar jumps to this address
 enum {
     Opcode,
     Operand,
@@ -92,7 +44,7 @@ enum {
 
 uint8_t OpcodesFlags[CODESIZE];
 
-// Länge eines Opcodes in Bytes ermitteln
+// calculate the length of an opcode
 uint8_t OpcodeLen(uint32_t p)
 {
 uint8_t len = 1;
@@ -123,7 +75,7 @@ uint8_t len = 1;
     case 0xF6:          // OR n
     case 0xFE:          // CP n
 
-    case 0xCB:          // Shift-,Rotate-,Bit-Befehle
+    case 0xCB:          // shift-,rotate-,bit-opcodes
                 len = 2;
                 break;
     case 0x01:          // LD BC,nn'
@@ -155,7 +107,7 @@ uint8_t len = 1;
                 len = 3;
                 break;
     case 0xDD:  len = 2;
-                switch(Opcodes[p+1]) {// 2.Teil des Opcodes
+                switch(Opcodes[p+1]) {// 2nd part of the opcode
                 case 0x34:          // INC (IX+d)
                 case 0x35:          // DEC (IX+d)
                 case 0x46:          // LD B,(IX+d)
@@ -192,7 +144,7 @@ uint8_t len = 1;
                 }
                 break;
     case 0xED:  len = 2;
-                switch(Opcodes[p+1]) {// 2.Teil des Opcodes
+                switch(Opcodes[p+1]) {// 2nd part of the opcode
                 case 0x43:          // LD (nn'),BC
                 case 0x4B:          // LD BC,(nn')
                 case 0x53:          // LD (nn'),DE
@@ -204,7 +156,7 @@ uint8_t len = 1;
                 }
                 break;
     case 0xFD:  len = 2;
-                switch(Opcodes[p+1]) {// 2.Teil des Opcodes
+                switch(Opcodes[p+1]) {// 2nd part of the opcode
                 case 0x34:          // INC (IY+d)
                 case 0x35:          // DEC (IY+d)
                 case 0x46:          // LD B,(IY+d)
@@ -251,24 +203,24 @@ uint32_t next;
 bool     label = true;
 
     do {
-        if(label)                       // ein Label setzen?
-            OpcodesFlags[adr] |= 0x10;  // Label setzen
-        if((OpcodesFlags[adr] & 0x0F) == Opcode) break; // Schleife erkannt!
+        if(label)                       // set a label?
+            OpcodesFlags[adr] |= 0x10;  // mark the memory cell as a jump destination
+        if((OpcodesFlags[adr] & 0x0F) == Opcode) break; // loop detected
         if((OpcodesFlags[adr] & 0x0F) == Operand) {
-            printf("Illegaler Sprung?!?\n");
+            printf("Illegal jump\n");
             return;
         }
-        len = OpcodeLen(adr);           // Länge vom Opcode ermitteln
+        len = OpcodeLen(adr);
         for(i=0;i<len;i++)
-            OpcodesFlags[adr+i] = Operand;  // Opcode eintragen
-        OpcodesFlags[adr] = Opcode;     // Start des Opcodes markieren
-        if(label) {                     // ein Label setzen?
-            OpcodesFlags[adr] |= 0x10;  // Label setzen
-            label = false;              // Label-Flag zurücksetzen
+            OpcodesFlags[adr+i] = Operand;  // transfer the opcode
+        OpcodesFlags[adr] = Opcode;     // mark the beginning of the opcode
+        if(label) {                     // define a label?
+            OpcodesFlags[adr] |= 0x10;  // yes
+            label = false;              // reset fkag
         }
 
-        next = adr + len;               // Ptr auf den Folgeopcode
-        switch(Opcodes[adr]) {          // Opcode holen
+        next = adr + len;               // ptr to the next opcode
+        switch(Opcodes[adr]) {          // get that opcode
         case 0xCA:      // JP c,????
         case 0xC2:
         case 0xDA:
@@ -332,20 +284,23 @@ bool     label = true;
                 return;
         case 0xE9:
 #if DEBUGGER
-                DebugStr("\pJP (HL) gefunden"); // JP (HL)
+                puts("JP (HL) found"); // JP (HL)
+                exit(-1);
 #endif
                 break;
         case 0xDD:
 #if DEBUGGER
                 if(Opcodes[adr+1] == 0xE9) {    // JP (IX)
-                    DebugStr("\pJP (IX) gefunden");
+                    puts("JP (IX) found");
+	                exit(-1);
                 }
 #endif
                 break;
         case 0xFD:
 #if DEBUGGER
                 if(Opcodes[adr+1] == 0xE9) {    // JP (IY)
-                    DebugStr("\pJP (IY) gefunden");
+                    puts("JP (IY) found");
+	                exit(-1);
                 }
 #endif
                 break;
@@ -361,8 +316,8 @@ bool     label = true;
     } while(1);
 }
 
-// Disassemblieren
-void        Disassemble(uint16_t adr,char* s)
+// Disassemble
+void        Disassemble(uint16_t adr,char *s)
 {
 uint8_t         a = Opcodes[adr];
 uint8_t         d = (a >> 3) & 7;
@@ -371,8 +326,8 @@ static const char *reg[8] = {"B","C","D","E","H","L","(HL)","A"};
 static const char *dreg[4] = {"BC","DE","HL","SP"};
 static const char *cond[8] = {"NZ","Z","NC","C","PO","PE","P","M"};
 static const char *arith[8] = {"ADD\t\tA,","ADC\t\tA,","SUB\t\t","SBC\t\tA,","AND\t\t","XOR\t\t","OR\t\t","CP\t\t"};
-char            stemp[80];      // temp.String für sprintf()
-char            ireg[3];        // temp.Indexregister
+char            stemp[80];      // temp. string for snprintf()
+char            ireg[3];        // temp. index register string
 
     switch(a & 0xC0) {
     case 0x00:
@@ -534,10 +489,10 @@ char            ireg[3];        // temp.Indexregister
                 snprintf(stemp,sizeof(stemp),"%4.4Xh",Opcodes[adr+1]+(Opcodes[adr+2]<<8));strcat(s,stemp);
                 break;
             case 0x01:                  // 0xCB
-                a = Opcodes[++adr];     // Erweiterungsopcode holen
+                a = Opcodes[++adr];     // get extended opcode
                 d = (a >> 3) & 7;
                 e = a & 7;
-                stemp[1] = 0;           // temp.String = 1 Zeichen
+                stemp[1] = 0;           // temp. string = 1 character
                 switch(a & 0xC0) {
                 case 0x00:
                     {
@@ -605,7 +560,7 @@ char            ireg[3];        // temp.Indexregister
                     snprintf(stemp,sizeof(stemp),"%4.4Xh",Opcodes[adr+1]+(Opcodes[adr+2]<<8));strcat(s,stemp);
                     break;
                 case 0x02:              // 0xED
-                    a = Opcodes[++adr]; // Erweiterungsopcode holen
+                    a = Opcodes[++adr]; // get extended opcode
                     d = (a >> 3) & 7;
                     e = a & 7;
                     switch(a & 0xC0) {
@@ -680,7 +635,7 @@ char            ireg[3];        // temp.Indexregister
                     break;
                 default:                // 0x01 (0xDD) = IX, 0x03 (0xFD) = IY
                     strcpy(ireg,(a & 0x20)?"IY":"IX");
-                    a = Opcodes[++adr]; // Erweiterungsopcode holen
+                    a = Opcodes[++adr]; // get extended opcode
                     switch(a) {
                     case 0x09:
                         strcpy(s,"ADD\t\t");
@@ -925,30 +880,30 @@ char            ireg[3];        // temp.Indexregister
     }
 }
 
-// Einlesen, Parsen, Disassemblieren und Ausgeben
+// Read, parse, disassembly and output
 int        main(void)
 {
 int16_t  i;
 FILE     *f;
 uint16_t adr = 0;
-char     s[80];          // Ausgabestring
+char     s[80];          // output string
 
     f = fopen("EPROM","rb");
     if(!f) return -1;
-    fread(Opcodes,CODESIZE,1,f);    // EPROM einlesen
+    fread(Opcodes,CODESIZE,1,f);    // read the EPROM
     fclose(f);
 
-    for(i=0;i<CODESIZE;i++)         // alles Daten…
+    for(i=0;i<CODESIZE;i++)         // default: everything is data
         OpcodesFlags[i] = Data;
     for(i=0;i<0x40;i+=0x08)
         if((OpcodesFlags[i] & 0x0F) == Data)
-            ParseOpcodes(i);        // RST-Vektoren parsen (wenn nötig)
+            ParseOpcodes(i);        // RST vectors are executable
     if((OpcodesFlags[i] & 0x0F) == Data)
-        ParseOpcodes(0x66);         // NMI-Vektor auch parsen (wenn nötig)
+        ParseOpcodes(0x66);         // NMI vector is also executable
 
 #if FUTURA_189
     ParseOpcodes(0xA41);
-    ParseOpcodes(0xDB6);        // Meßwerte darstellen
+    ParseOpcodes(0xDB6);        // value displays
     ParseOpcodes(0xF5D);
     ParseOpcodes(0xE83);
 
@@ -960,7 +915,7 @@ char     s[80];          // Ausgabestring
     ParseOpcodes(0x098F);
     ParseOpcodes(0x0B99);
     ParseOpcodes(0x0BB3);
-    ParseOpcodes(0x0B4A);       // Tastenfeld
+    ParseOpcodes(0x0B4A);       // key command
     ParseOpcodes(0x0B12);
     ParseOpcodes(0x08FF);
     ParseOpcodes(0x08F0);
@@ -973,7 +928,7 @@ char     s[80];          // Ausgabestring
 
     ParseOpcodes(0x1660);
     ParseOpcodes(0x166E);
-    ParseOpcodes(0x167C);       // Spezielle Tastenkombinationen
+    ParseOpcodes(0x167C);       // special key commands
     ParseOpcodes(0x168A);
     ParseOpcodes(0x1698);
     ParseOpcodes(0x16A6);
@@ -995,7 +950,7 @@ char     s[80];          // Ausgabestring
             fprintf(f,"\n");
             adr += i;
         } else {
-            len = OpcodeLen(adr);           // Länge vom Opcode ermitteln
+            len = OpcodeLen(adr);
 #if 1
             if(OpcodesFlags[adr] & 0x10)
                 fprintf(f,"L%4.4X:\t",adr);
