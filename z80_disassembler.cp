@@ -661,7 +661,7 @@ char            ireg[3];        // temp.Indexregister
                             break;
                         case 0x07:
                             {
-                            static const char *str[8] = {"LD\t\tI,A","???","LD\t\tA,I","???","RRD","RLD","???","???"};
+                            static const char *str[8] = {"LD\t\tI,A","LD\t\tR,A","LD\t\tA,I","LD\t\tA,R","RRD","RLD","???","???"};
                             strcpy(s,str[d]);
                             }
                             break;
