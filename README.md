@@ -7,14 +7,14 @@ Z80 Disassembler
 
 I created this small disassembler for a Z80 cpu at one afternoon. It is a commandline tool. The size of the ROM and entry points have to be coded directly in the sourcecode.
 
-Every ANSI C compiler should compile this program. It is tested with Think C 5.0 on a Macintosh. It only uses some ANSI functions (look into ''main()'') for loading a file called "EPROM".
+Every ANSI C++ compiler should compile this program. It only uses some ANSI C functions (look into ''main()'') for loading a file called "EPROM".
 
 The program has two parts:
 
   - Analyze the code. The disassembler tries to analyze what part of the binary data is program code and what part is data. It start with all hardware vectors of the Z80 (''RST'' opcodes, NMI) and parses all jumps via a recursive analyze via ''ParseOpcode()''. Every opcode is marked in an array (''OpcodesFlags''). There are some exceptions, the parser can't recognize:
     - self modifying code. A ROM shouldn't contain such code.
-    - calculated branches with ''JP (IY)'', ''JP (IX)'' or ''JP (HL)''. The parser can't recognize them, either. On a Macintosh the low-level debugger is called, when such a jump is found. Set the Symbol ''DEBUGGER'' to 0 to disable this behavior...
-    - Jumptables. These are quite often in a ROM. Only solution: disassemble the program and look into the code. If you found a jumptable - like on my Futura aquarium computer - insert some more calls of ''ParseOpcodes()''.
+    - calculated branches with ''JP (IY)'', ''JP (IX)'' or ''JP (HL)''. The parser can't recognize them, either.
+    - Jumptables. These are quite common in a ROM. Only solution: disassemble the program and look into the code. If you found a jumptable - like on my Futura aquarium computer - insert some more calls of ''ParseOpcodes()''.
     - Unused code. Code that is never called by anybody, could not be found. Make sure that the code is not called via a jump table!
   - Disassembly of the code. With the help of the OpcodesFlags table the disassembler now creates the output. This subroutine is quite long. It disassembles one opcode at a specific address in ROM into a buffer. It is coded directly from a list of Z80 opcodes, so the handling of ''IX'' and ''IY'' could be optimized quite a lot.
 
@@ -23,8 +23,6 @@ The subroutine ''OpcodeLen()'' returns the size of one opcode in bytes. It is ca
 The disassembler recognizes no hidden opcodes (the assembler does!). I didn't had a table for them while writing the disassembler and they were not needed anyway.
 
 If a routine wanted an "address" to the Z80 code, it is in fact an **offset** to the array of code. **No** pointers! Longs are not necessary for a Z80, because the standard Z80 only supports 64k.
-
-In ''main()'' is a switch for disassembly with address and hexdump instead of disassembly with labels. This is useful for findings bugs in the disassembler and creating a list of variables.
 
 This program is freeware. It is not allowed to be used as a base for a commercial product!
 
@@ -55,9 +53,9 @@ The assembler also knows the most commend pseudo opcodes (look into the sourcefi
 The Sourcecode
 --------------
 
-  * [Z80 Assembler.c](z80_assembler.c)
+  * [Z80 Assembler.cp](z80_assembler.cp)
   * [Z80 Assembler.h](z80_assembler.h)
-  * [Z80 Calc.c](z80_calc.c)
-  * [Z80 Compile.c](z80_compile.c)
-  * [Z80 Disassembler.c](z80_disassembler.c)
-  * [Z80 Tokenize.c](z80_tokenize.c)
+  * [Z80 Calc.cp](z80_calc.cp)
+  * [Z80 Compile.cp](z80_compile.cp)
+  * [Z80 Disassembler.cp](z80_disassembler.cp)
+  * [Z80 Tokenize.cp](z80_tokenize.cp)
