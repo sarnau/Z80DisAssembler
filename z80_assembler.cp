@@ -34,9 +34,7 @@ int        main(void)
 {
 FILE     *f;
 char*    s;
-int32_t  i,j;
-uint16_t savePC;
-uint8_t  EPROM[0x2000];
+int32_t  i;
 
     LineNo = 1;
     InitSymTab();                       // Symboltabelle initialisieren
@@ -57,18 +55,8 @@ uint8_t  EPROM[0x2000];
         s = fgets(LineBuf,sizeof(LineBuf),f);   // eine Zeile einlesen
         if(!s) break;                   // Sourcetext-Ende => raus
         *(s + strlen(s) - 1) = 0;       // CR am Zeilenende entfernen
-//	    puts(s);
         TokenizeLine(s);                // Zeile tokenisieren
-        savePC = PC;
         CompileLine();                  // Zeile übersetzen
-#if 0
-        if(savePC != PC) {
-            printf("%4.4X:",savePC);
-            for(i=savePC;i<PC;i++)
-                printf("%2.2X ",RAM[i]);
-            printf("\n");
-        }
-#endif
         LineNo++;                       // nächste Zeile
     }
     fclose(f);
@@ -85,11 +73,12 @@ uint8_t  EPROM[0x2000];
     puts("Original-EPROM einlesen");
     f = fopen("EPROM","rb");
     if(!f) exit(1);
+	uint8_t  EPROM[0x2000];
     fread(EPROM,sizeof(uint8_t),0x2000,f);// 8K EPROM einlesen
     fclose(f);
 
     puts("Programmcode mit dem Original vergleichen");
-    j = 0;                          // und vergleichen…
+    int32_t  j = 0;                       // und vergleichen…
     for(i=0;(i<0x2000)&&(j < 10);i++)
         if(RAM[i] != EPROM[i]) {
             printf("%4.4X : %2.2X != %2.2X\n",(uint16_t)i,RAM[i],EPROM[i]);

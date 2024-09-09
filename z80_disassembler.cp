@@ -88,7 +88,7 @@ enum {
     Opcode,
     Operand,
     Data
-} DataType;
+};
 
 uint8_t OpcodesFlags[CODESIZE];
 
