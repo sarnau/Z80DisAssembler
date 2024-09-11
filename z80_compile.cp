@@ -799,7 +799,7 @@ RecalcListP op1Recalc,op2Recalc;
                 else if((op1 & 0xFF0) == 0x300) {           // B,C,D,E,H,L,(HL),A
                     *iRAM++ = 0xCB;
                     *iRAM++ = Op0_24|(op1 & 0x07);
-                } else if((op1 == 0x630)||(op1 = 0x631)) {  // (IX+d), (IY+d)
+                } else if((op1 == 0x630)||(op1 == 0x631)) {  // (IX+d), (IY+d)
                     *iRAM++ = (op1 & 0x01)?0xFD:0xDD;
                     *iRAM++ = 0xCB;
                     if(op1Recalc) {         // expression undefined?
