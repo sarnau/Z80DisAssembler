@@ -558,7 +558,7 @@ const char       *ireg;        // temp. index register string
                             }
                             break;
                         case 0x06:
-                            G("IM      %d",d);
+                            G("IM      %d", d ? d-1 : d); // ED 46, ED 56, ED 5E
                             break;
                         case 0x07:
                             {
