@@ -475,7 +475,7 @@ const char       *ireg;        // temp. index register string
                 switch(a & 0xC0) {
                 case 0x00:
                     {
-                    static const char *str[8] = {"RLC","RRC","RL ","RR ","SLA","SRA","???","SRL"};
+                    static const char *str[8] = {"RLC","RRC","RL ","RR ","SLA","SRA","SLL","SRL"};
                     G("%s     %s",str[d],reg[e]);
                     }
                     break;
@@ -684,7 +684,7 @@ const char       *ireg;        // temp. index register string
                         switch(a & 0xC0) {
                         case 0x00:
                             {
-                            static const char *str[8] = {"RLC","RRC","RL","RR","SLA","SRA","???","SRL"};
+                            static const char *str[8] = {"RLC","RRC","RL","RR","SLA","SRA","SLL","SRL"};
                             G("%s     (%s+%2.2Xh)",str[d],ireg,Opcodes[adr+1]);
                             }
                             break;
