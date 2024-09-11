@@ -47,12 +47,14 @@ static void MSG( int mode, const char *format, ... ) {
 
 
 // debugging support function, print opcode as octal and binary
-static void appendADE( char *s, int a, char *prefix = nullptr ) {
+static void appendADE( char *s, size_t ssize, int a, char *prefix = nullptr ) {
     if ( verboseMode > 1 ) {
         uint8_t d = ( a >> 3 ) & 7;
         uint8_t e = a & 7;
-        sprintf( s + strlen( s ), "%*c ", int( 24 - strlen( s ) ), ';' );
-        sprintf( s + strlen( s ), "%02X: %d.%d.%d (%c%c.%c%c%c.%c%c%c)",
+        size_t sl = strlen(s);
+        snprintf( s+sl, ssize-sl, "%*c ", int( 24 - strlen( s ) ), ';' );
+        sl = strlen(s);
+        snprintf( s+sl, ssize-sl, "%02X: %d.%d.%d (%c%c.%c%c%c.%c%c%c)",
                 a, a >> 6, d, e,
                 a & 0x80 ? '1' : '0', a & 0x40 ? '1' : '0',
                 d & 0x04 ? '1' : '0', d & 0x02 ? '1' : '0', d & 0x01 ? '1' : '0', e & 0x04 ? '1' : '0', e & 0x02 ? '1' : '0',
@@ -525,7 +527,7 @@ const char       *ireg;        // temp. index register string
                     break;
                 }
                 if ( verboseMode > 1 )
-                    appendADE( s, a ); // debug for CB xx
+                    appendADE(s,ssize,a); // debug for CB xx
                 break;
             case 0x02:
                 G("OUT     (%2.2Xh),A",BYTE_1);
@@ -623,7 +625,7 @@ const char       *ireg;        // temp. index register string
                         break;
                     }
                     if ( verboseMode > 1 )
-                        appendADE( s, a ); // debug info for ED xx
+                        appendADE(s,ssize,a); // debug info for ED xx
                     break;
                 default:                // 0x01 (0xDD) = IX, 0x03 (0xFD) = IY
                     DDFD = a;
@@ -733,11 +735,11 @@ const char       *ireg;        // temp. index register string
                             break;
                         }
                         if ( verboseMode > 1 )
-                            appendADE( s, a ); // debug info for DD/FD CB xx
+                            appendADE(s,ssize,a); // debug info for DD/FD CB xx
                         break;
                     }
                     if ( verboseMode > 1 && !CB )
-                            appendADE( s, a ); // debug info for DD/FD xx
+                            appendADE(s,ssize,a); // debug info for DD/FD xx
                     break;
                  }
             } else
@@ -753,7 +755,7 @@ const char       *ireg;        // temp. index register string
         break;
     }
     if ( verboseMode > 1 && !CB && !DDFD && !ED )
-        appendADE( s, a ); // debug info only for non-prefixed opcodes
+        appendADE(s,ssize,a); // debug info only for non-prefixed opcodes
 }
 
 
