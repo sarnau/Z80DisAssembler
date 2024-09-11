@@ -527,10 +527,16 @@ const char       *ireg;        // temp. index register string
                     case 0x40:
                         switch(e) {
                         case 0x00:
-                            G("IN      %s,(C)",reg[d]);
+                            if (a == 0x70) // undoc: "in (c)" set flags but do not modify a reg
+                                G("IN      (C)");
+                            else
+                                G("IN      %s,(C)",reg[d]);
                             break;
                         case 0x01:
-                            G("OUT     (C),%s",reg[d]);
+                            if (a == 0x71) // undoc: "out (c), 0" output 0
+                                G("OUT     (C),0");
+                            else
+                                G("OUT     (C),%s",reg[d]);
                             break;
                         case 0x02:
                             if(d & 1)
