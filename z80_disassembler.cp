@@ -28,7 +28,6 @@ This program is freeware. It is not allowed to be used as a base for a commercia
 #include <stdint.h>
 #include <stdarg.h>
 
-#define CODESIZE           8192 // 8K program code
 #define FUTURA_189         1    // jump table for the Futura Aquariencomputer ROM V1.89 https://github.com/sarnau/FuturaAquariumComputer
 #define DETECT_JUMPTABLES  0    // if 1, then break if a jump table is detected
 
@@ -730,7 +729,7 @@ int      codeSize;
     if(!f) // else try the 1st argument as input
         if (argc == 1 || !(f = fopen(argv[1],"rb")))
             return -1;
-    codeSize = fread(Opcodes,1,CODESIZE,f); // read the EPROM, report the code size
+    codeSize = fread(Opcodes,1,sizeof(Opcodes),f); // read the data, report the code size
     fclose(f);
 
     for(int i=0;i<codeSize;i++)         // default: all read bytes are data
