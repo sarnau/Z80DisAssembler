@@ -720,17 +720,20 @@ const char       *ireg;        // temp. index register string
 }
 
 // Read, parse, disassembly and output
-int        main(void)
+int        main(int argc, char **argv)
 {
 FILE     *f;
 char     s[80];          // output string
+int      codeSize;
 
     f = fopen("EPROM","rb");
-    if(!f) return -1;
-    fread(Opcodes,CODESIZE,1,f);    // read the EPROM
+    if(!f) // else try the 1st argument as input
+        if (argc == 1 || !(f = fopen(argv[1],"rb")))
+            return -1;
+    codeSize = fread(Opcodes,1,CODESIZE,f); // read the EPROM, report the code size
     fclose(f);
 
-    for(int i=0;i<CODESIZE;i++)         // default: everything is data
+    for(int i=0;i<codeSize;i++)         // default: all read bytes are data
         OpcodesFlags[i] = Data;
     for(int i=0;i<0x40;i+=0x08)
         if((OpcodesFlags[i] & 0x0F) == Data)
@@ -772,10 +775,11 @@ char     s[80];          // output string
     ParseOpcodes(0x16CF);
 #endif
 
-    f = stdout;
+    if (argc < 3 || !(f = fopen(argv[2],"w")))
+        f = stdout;
 //    f = fopen("OUTPUT","w");
     if(!f) return -1;
-    for(uint16_t adr=0; adr < CODESIZE; ) {
+    for(uint16_t adr=0; adr < codeSize; ) { // process only the read data
         int i;
 
         if((OpcodesFlags[adr] & 0x0F) == Data) {
