@@ -197,6 +197,13 @@ int len = 1;
     return len;
 }
 
+
+// shorties for "next byte", "next next byte" and "next word"
+#define BYTE_1 Opcodes[ adr + 1 ]
+#define BYTE_2 Opcodes[ adr + 2 ]
+#define WORD_1_2 ( BYTE_1 + ( BYTE_2 << 8 ) )
+
+
 static void        ParseOpcodes(uint16_t adr)
 {
 int16_t  i;
@@ -230,13 +237,13 @@ bool     label = true;
         case 0xE2:
         case 0xFA:
         case 0xF2:
-                ParseOpcodes((Opcodes[adr+2]<<8) + Opcodes[adr+1]);
+                ParseOpcodes(WORD_1_2);
                 break;
         case 0x28:      // JR c,??
         case 0x20:
         case 0x38:
         case 0x30:
-                ParseOpcodes(adr + 2 + (uint8_t)Opcodes[adr+1]);
+                ParseOpcodes(adr + 2 + BYTE_1);
                 break;
         case 0xCC:      // CALL c,????
         case 0xC4:
@@ -246,7 +253,7 @@ bool     label = true;
         case 0xE4:
         case 0xFC:
         case 0xF4:
-                ParseOpcodes((Opcodes[adr+2]<<8) + Opcodes[adr+1]);
+                ParseOpcodes(WORD_1_2);
                 break;
         case 0xC8:      // RET c
         case 0xC0:
@@ -268,18 +275,18 @@ bool     label = true;
                 ParseOpcodes(Opcodes[adr] & 0x38);
                 break;
         case 0x10:      // DJNZ ??
-                ParseOpcodes(adr + 2 + (uint8_t)Opcodes[adr+1]);
+                ParseOpcodes(adr + 2 + BYTE_1);
                 break;
         case 0xC3:      // JP ????
-                next = (Opcodes[adr+2]<<8) + Opcodes[adr+1];
+                next = WORD_1_2;
                 label = true;
                 break;
         case 0x18:      // JR ??
-                next = adr + 2 + (uint8_t)Opcodes[adr+1];
+                next = adr + 2 + BYTE_1;
                 label = true;
                 break;
         case 0xCD:      // CALL ????
-                ParseOpcodes((Opcodes[adr+2]<<8) + Opcodes[adr+1]);
+                ParseOpcodes(WORD_1_2);
                 break;
         case 0xC9:      // RET
                 return;
@@ -291,7 +298,7 @@ bool     label = true;
                 break;
         case 0xDD:
 #if DETECT_JUMPTABLES
-                if(Opcodes[adr+1] == 0xE9) {    // JP (IX)
+                if(BYTE_1 == 0xE9) {    // JP (IX)
                     puts("JP (IX) found");
 	                exit(-1);
                 }
@@ -299,16 +306,16 @@ bool     label = true;
                 break;
         case 0xFD:
 #if DETECT_JUMPTABLES
-                if(Opcodes[adr+1] == 0xE9) {    // JP (IY)
+                if(BYTE_1 == 0xE9) {    // JP (IY)
                     puts("JP (IY) found");
 	                exit(-1);
                 }
 #endif
                 break;
         case 0xED:
-                if(Opcodes[adr+1] == 0x4D) {    // RTI
+                if(BYTE_1 == 0x4D) {    // RETI
                     return;
-                } else if(Opcodes[adr+1] == 0x45) { // RETN
+                } else if(BYTE_1 == 0x45) { // RETN
                     return;
                 }
                 break;
@@ -338,8 +345,8 @@ uint8_t         e = a & 7;
 static const char *reg[8] = {"B","C","D","E","H","L","(HL)","A"};
 static const char *dreg[4] = {"BC","DE","HL","SP"};
 static const char *cond[8] = {"NZ","Z","NC","C","PO","PE","P","M"};
-static const char *arith[8] = {"ADD     A,", "ADC     A, ", "SUB     ", "SBC     A,",
-                               "AND     ",   "XOR     ",    "OR      ", "CP      "};
+static const char *arith[8] = {"ADD     A,", "ADC     A,", "SUB     ", "SBC     A,",
+                               "AND     ",   "XOR     ",   "OR      ", "CP        "};
 const char       *ireg;        // temp. index register string
 
     switch(a & 0xC0) {
@@ -354,13 +361,13 @@ const char       *ireg;        // temp. index register string
             	G("EX      AF,AF'");
                 break;
             case 0x02:
-            	G("DJNZ    %4.4Xh",adr+2+(uint8_t)Opcodes[adr+1]);
+                G("DJNZ    %4.4Xh",adr+2+BYTE_1);
                 break;
             case 0x03:
-            	G("JR      %4.4Xh",adr+2+(uint8_t)Opcodes[adr+1]);
+                G("JR      %4.4Xh",adr+2+BYTE_1);
                 break;
             default:
-            	G("JR      %s,%4.4Xh",cond[d & 3],adr+2+(uint8_t)Opcodes[adr+1]);
+                G("JR      %s,%4.4Xh",cond[d & 3],adr+2+BYTE_1);
                 break;
             }
             break;
@@ -368,7 +375,7 @@ const char       *ireg;        // temp. index register string
             if(a & 0x08) {
             	G("ADD     HL,%s",dreg[d >> 1]);
             } else {
-            	G("LD      %s,%4.4Xh",dreg[d >> 1],Opcodes[adr+1]+(Opcodes[adr+2]<<8));
+                G("LD      %s,%4.4Xh",dreg[d >> 1],WORD_1_2);
             }
             break;
         case 0x02:
@@ -386,16 +393,16 @@ const char       *ireg;        // temp. index register string
                 G("LD      A,(DE)");
                 break;
             case 0x04:
-                G("LD      (%4.4Xh),HL",Opcodes[adr+1]+(Opcodes[adr+2]<<8));
+                G("LD      (%4.4Xh),HL",WORD_1_2);
                 break;
             case 0x05:
-                G("LD      HL,(%4.4Xh)",Opcodes[adr+1]+(Opcodes[adr+2]<<8));
+                G("LD      HL,(%4.4Xh)",WORD_1_2);
                 break;
             case 0x06:
-                G("LD      (%4.4Xh),A",Opcodes[adr+1]+(Opcodes[adr+2]<<8));
+                G("LD      (%4.4Xh),A",WORD_1_2);
                 break;
             case 0x07:
-                G("LD      A,(%4.4Xh)",Opcodes[adr+1]+(Opcodes[adr+2]<<8));
+                G("LD      A,(%4.4Xh)",WORD_1_2);
                 break;
             }
             break;
@@ -406,13 +413,13 @@ const char       *ireg;        // temp. index register string
             	G("INC     %s",dreg[d >> 1]);
             break;
         case 0x04:
-          	G("INC     %s",reg[d]);
+            G("INC     %s",reg[d]);
             break;
         case 0x05:
-          	G("DEC     %s",reg[d]);
+            G("DEC     %s",reg[d]);
             break;
         case 0x06:              // LD   d,n
-          	G("LD      %s,%2.2Xh",reg[d],Opcodes[adr+1]);
+            G("LD      %s,%2.2Xh",reg[d],BYTE_1);
             break;
         case 0x07:
             {
@@ -430,7 +437,7 @@ const char       *ireg;        // temp. index register string
         }
         break;
     case 0x80:
-     	G("%s%s",arith[d],reg[e]);
+        G("%-8s%s",arith[d],reg[e]);
         break;
     case 0xC0:
         switch(e) {
@@ -461,12 +468,12 @@ const char       *ireg;        // temp. index register string
             }
             break;
         case 0x02:
-            G("JP      %s,%4.4Xh",cond[d],Opcodes[adr+1]+(Opcodes[adr+2]<<8));
+            G("JP      %s,%4.4Xh",cond[d],WORD_1_2);
             break;
         case 0x03:
             switch(d) {
             case 0x00:
-                G("JP      %4.4Xh",Opcodes[adr+1]+(Opcodes[adr+2]<<8));
+                G("JP      %4.4Xh",WORD_1_2);
                 break;
             case 0x01:                  // 0xCB
                 a = Opcodes[++adr];     // get extended opcode
@@ -475,7 +482,7 @@ const char       *ireg;        // temp. index register string
                 switch(a & 0xC0) {
                 case 0x00:
                     {
-                    static const char *str[8] = {"RLC","RRC","RL ","RR ","SLA","SRA","???","SRL"};
+                    static const char *str[8] = {"RLC","RRC","RL ","RR ","SLA","SRA","SLL","SRL"};
                     G("%s     %s",str[d],reg[e]);
                     }
                     break;
@@ -491,10 +498,10 @@ const char       *ireg;        // temp. index register string
                 }
                 break;
             case 0x02:
-                G("OUT     (%2.2Xh),A",Opcodes[adr+1]);
+                G("OUT     (%2.2Xh),A",BYTE_1);
                 break;
             case 0x03:
-                G("IN      A,(%2.2Xh)",Opcodes[adr+1]);
+                G("IN      A,(%2.2Xh)",BYTE_1);
                 break;
             case 0x04:
                 G("EX      (SP),HL");
@@ -511,13 +518,13 @@ const char       *ireg;        // temp. index register string
             }
             break;
         case 0x04:
-            G("CALL    %s,%4.4Xh",cond[d],Opcodes[adr+1]+(Opcodes[adr+2]<<8));
+            G("CALL    %s,%4.4Xh",cond[d],WORD_1_2);
             break;
         case 0x05:
             if(d & 1) {
                 switch(d >> 1) {
                 case 0x00:
-		            G("CALL    %4.4Xh",Opcodes[adr+1]+(Opcodes[adr+2]<<8));
+		            G("CALL    %4.4Xh",WORD_1_2);
                     break;
                 case 0x02:              // 0xED
                     a = Opcodes[++adr]; // get extended opcode
@@ -527,10 +534,16 @@ const char       *ireg;        // temp. index register string
                     case 0x40:
                         switch(e) {
                         case 0x00:
-                            G("IN      %s,(C)",reg[d]);
+                            if (a == 0x70) // undoc: "in (c)" set flags but do not modify a reg
+                                G("IN      (C)");
+                            else
+                                G("IN      %s,(C)",reg[d]);
                             break;
                         case 0x01:
-                            G("OUT     (C),%s",reg[d]);
+                            if (a == 0x71) // undoc: "out (c), 0" output 0
+                                G("OUT     (C),0");
+                            else
+                                G("OUT     (C),%s",reg[d]);
                             break;
                         case 0x02:
                             if(d & 1)
@@ -540,9 +553,9 @@ const char       *ireg;        // temp. index register string
                             break;
                         case 0x03:
                             if(d & 1) {
-                                G("LD      %s,(%4.4Xh)",dreg[d >> 1],Opcodes[adr+1]+(Opcodes[adr+2]<<8));
+                                G("LD      %s,(%4.4Xh)",dreg[d >> 1],WORD_1_2);
                             } else {
-                                G("LD      (%4.4Xh),%s",Opcodes[adr+1]+(Opcodes[adr+2]<<8),dreg[d >> 1]);
+                                G("LD      (%4.4Xh),%s",WORD_1_2,dreg[d >> 1]);
                             }
                             break;
                         case 0x04:
@@ -558,7 +571,7 @@ const char       *ireg;        // temp. index register string
                             }
                             break;
                         case 0x06:
-                            G("IM      %d",d);
+                            G("IM      %d", d ? d-1 : d); // ED 46, ED 56, ED 5E
                             break;
                         case 0x07:
                             {
@@ -582,6 +595,8 @@ const char       *ireg;        // temp. index register string
                 default:                // 0x01 (0xDD) = IX, 0x03 (0xFD) = IY
                     ireg = (a & 0x20) ? "IY" : "IX";
                     a = Opcodes[++adr]; // get extended opcode
+                    d = (a >> 3) & 7;
+                    e = a & 7;
                     switch(a) {
                     case 0x09:
                         G("ADD     %s,BC",ireg);
@@ -590,10 +605,10 @@ const char       *ireg;        // temp. index register string
                         G("ADD     %s,DE",ireg);
                         break;
                     case 0x21:
-                        G("LD      %s,%4.4Xh",ireg,Opcodes[adr+1]+(Opcodes[adr+2]<<8));
+                        G("LD      %s,%4.4Xh",ireg,WORD_1_2);
                         break;
                     case 0x22:
-                        G("LD      (%4.4Xh),%s",Opcodes[adr+1]+(Opcodes[adr+2]<<8),ireg);
+                        G("LD      (%4.4Xh),%s",WORD_1_2,ireg);
                         break;
                     case 0x23:
                         G("INC     %s",ireg);
@@ -602,19 +617,19 @@ const char       *ireg;        // temp. index register string
                         G("ADD     %s,%s",ireg,ireg);
                         break;
                     case 0x2A:
-                        G("LD      %s,(%4.4Xh)",ireg,Opcodes[adr+1]+(Opcodes[adr+2]<<8));
+                        G("LD      %s,(%4.4Xh)",ireg,WORD_1_2);
                         break;
                     case 0x2B:
                         G("DEC     %s",ireg);
                         break;
                     case 0x34:
-                        G("INC     (%s+%2.2Xh)",ireg,Opcodes[adr+1]);
+                        G("INC     (%s+%2.2Xh)",ireg,BYTE_1);
                         break;
                     case 0x35:
-                        G("DEC     (%s+%2.2Xh)",ireg,Opcodes[adr+1]);
+                        G("DEC     (%s+%2.2Xh)",ireg,BYTE_1);
                         break;
                     case 0x36:
-                        G("LD      (%s+%2.2Xh),%2.2Xh",ireg,Opcodes[adr+1],Opcodes[adr+2]);
+                        G("LD      (%s+%2.2Xh),%2.2Xh",ireg,BYTE_1,BYTE_2);
                         break;
                     case 0x39:
                         G("ADD     %s,SP",ireg);
@@ -625,7 +640,8 @@ const char       *ireg;        // temp. index register string
                     case 0x5E:
                     case 0x66:
                     case 0x6E:
-                        G("LD      %s,(%s+%2.2Xh)",reg[(a>>3)&7],ireg,Opcodes[adr+1]);
+                    case 0x7E:
+                        G("LD      %s,(%s+%2.2Xh)",reg[d],ireg,BYTE_1);
                         break;
                     case 0x70:
                     case 0x71:
@@ -634,34 +650,17 @@ const char       *ireg;        // temp. index register string
                     case 0x74:
                     case 0x75:
                     case 0x77:
-                        G("LD      (%s+%2.2Xh),%s",ireg,Opcodes[adr+1],reg[a & 7]);
-                        break;
-                    case 0x7E:
-                        G("LD      A,(%s+%2.2Xh)",ireg,Opcodes[adr+1]);
+                        G("LD      (%s+%2.2Xh),%s",ireg,BYTE_1,reg[e]);
                         break;
                     case 0x86:
-                        G("ADD     A,(%s+%2.2Xh)",ireg,Opcodes[adr+1]);
-                        break;
                     case 0x8E:
-                        G("ADC     A,(%s+%2.2Xh)",ireg,Opcodes[adr+1]);
-                        break;
                     case 0x96:
-                        G("SUB     A,(%s+%2.2Xh)",ireg,Opcodes[adr+1]);
-                        break;
                     case 0x9E:
-                        G("SBC     A,(%s+%2.2Xh)",ireg,Opcodes[adr+1]);
-                        break;
                     case 0xA6:
-                        G("AND     A,(%s+%2.2Xh)",ireg,Opcodes[adr+1]);
-                        break;
                     case 0xAE:
-                        G("XOR     A,(%s+%2.2Xh)",ireg,Opcodes[adr+1]);
-                        break;
                     case 0xB6:
-                        G("OR      A,(%s+%2.2Xh)",ireg,Opcodes[adr+1]);
-                        break;
                     case 0xBE:
-                        G("CP      A,(%s+%2.2Xh)",ireg,Opcodes[adr+1]);
+                        G("%-8s(%s+%2.2Xh)",arith[d],ireg,BYTE_1);
                         break;
                     case 0xE1:
                         G("POP     %s",ireg);
@@ -679,23 +678,23 @@ const char       *ireg;        // temp. index register string
                         G("LD      SP,%s",ireg);
                         break;
                     case 0xCB:
-                        a = Opcodes[adr+2]; // additional subopcodes
+                        a = BYTE_2; // additional subopcodes
                         d = (a >> 3) & 7;
                         switch(a & 0xC0) {
                         case 0x00:
                             {
-                            static const char *str[8] = {"RLC","RRC","RL","RR","SLA","SRA","???","SRL"};
-                            G("%s     (%s+%2.2Xh)",str[d],ireg,Opcodes[adr+1]);
+                            static const char *str[8] = {"RLC","RRC","RL","RR","SLA","SRA","SLL","SRL"};
+                            G("%s     (%s+%2.2Xh)",str[d],ireg,BYTE_1);
                             }
                             break;
                         case 0x40:
-                            G("BIT     %d,(%s+%2.2Xh)",d,ireg,Opcodes[adr+1]);
+                            G("BIT     %d,(%s+%2.2Xh)",d,ireg,BYTE_1);
                             break;
                         case 0x80:
-                            G("RES     %d,(%s+%2.2Xh)",d,ireg,Opcodes[adr+1]);
+                            G("RES     %d,(%s+%2.2Xh)",d,ireg,BYTE_1);
                             break;
                         case 0xC0:
-                            G("SET     %d,(%s+%2.2Xh)",d,ireg,Opcodes[adr+1]);
+                            G("SET     %d,(%s+%2.2Xh)",d,ireg,BYTE_1);
                             break;
                         }
                         break;
@@ -710,7 +709,7 @@ const char       *ireg;        // temp. index register string
             }
             break;
         case 0x06:
-            G("%s%2.2Xh",arith[d],Opcodes[adr+1]);
+            G("%-8s%2.2Xh",arith[d],BYTE_1);
             break;
         case 0x07:
             G("RST     %2.2Xh",a & 0x38);
@@ -721,17 +720,20 @@ const char       *ireg;        // temp. index register string
 }
 
 // Read, parse, disassembly and output
-int        main(void)
+int        main(int argc, char **argv)
 {
 FILE     *f;
 char     s[80];          // output string
+int      codeSize;
 
     f = fopen("EPROM","rb");
-    if(!f) return -1;
-    fread(Opcodes,CODESIZE,1,f);    // read the EPROM
+    if(!f) // else try the 1st argument as input
+        if (argc == 1 || !(f = fopen(argv[1],"rb")))
+            return -1;
+    codeSize = fread(Opcodes,1,CODESIZE,f); // read the EPROM, report the code size
     fclose(f);
 
-    for(int i=0;i<CODESIZE;i++)         // default: everything is data
+    for(int i=0;i<codeSize;i++)         // default: all read bytes are data
         OpcodesFlags[i] = Data;
     for(int i=0;i<0x40;i+=0x08)
         if((OpcodesFlags[i] & 0x0F) == Data)
@@ -773,10 +775,11 @@ char     s[80];          // output string
     ParseOpcodes(0x16CF);
 #endif
 
-    f = stdout;
+    if (argc < 3 || !(f = fopen(argv[2],"w")))
+        f = stdout;
 //    f = fopen("OUTPUT","w");
     if(!f) return -1;
-    for(uint16_t adr=0; adr < CODESIZE; ) {
+    for(uint16_t adr=0; adr < codeSize; ) { // process only the read data
         int i;
 
         if((OpcodesFlags[adr] & 0x0F) == Data) {
