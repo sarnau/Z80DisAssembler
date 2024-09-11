@@ -34,9 +34,36 @@ This program is freeware. It is not allowed to be used as a base for a commercia
 // memory for the code
 static uint8_t Opcodes[0x10000];
 
+static int verboseMode = 0;
+
+static void MSG( int mode, const char *format, ... ) {
+    if ( verboseMode >= mode ) {
+        va_list argptr;
+        va_start( argptr, format );
+        vfprintf( stderr, format, argptr );
+        va_end( argptr );
+    }
+}
+
+
+// debugging support function, print opcode as octal and binary
+static void appendADE( char *s, int a, char *prefix = nullptr ) {
+    if ( verboseMode > 1 ) {
+        uint8_t d = ( a >> 3 ) & 7;
+        uint8_t e = a & 7;
+        sprintf( s + strlen( s ), "%*c ", int( 24 - strlen( s ) ), ';' );
+        sprintf( s + strlen( s ), "%02X: %d.%d.%d (%c%c.%c%c%c.%c%c%c)",
+                a, a >> 6, d, e,
+                a & 0x80 ? '1' : '0', a & 0x40 ? '1' : '0',
+                d & 0x04 ? '1' : '0', d & 0x02 ? '1' : '0', d & 0x01 ? '1' : '0', e & 0x04 ? '1' : '0', e & 0x02 ? '1' : '0',
+                e & 0x01 ? '1' : '0' );
+    }
+}
+
 // Flag per memory cell: opcode, operand or data
 // bit 4 = 1, a JR or similar jumps to this address
 enum {
+    Empty,
     Opcode,
     Operand,
     Data
@@ -339,13 +366,14 @@ static void GenerateOutput(char *buf, size_t bufsize, const char *Format, ...)
 void        Disassemble(uint16_t adr,char *s,size_t ssize)
 {
 uint8_t         a = Opcodes[adr];
+uint8_t         CB = 0, DDFD = 0, ED = 0; // prefix marker
 uint8_t         d = (a >> 3) & 7;
 uint8_t         e = a & 7;
 static const char *reg[8] = {"B","C","D","E","H","L","(HL)","A"};
 static const char *dreg[4] = {"BC","DE","HL","SP"};
 static const char *cond[8] = {"NZ","Z","NC","C","PO","PE","P","M"};
-static const char *arith[8] = {"ADD     A,", "ADC     A,", "SUB     ", "SBC     A,",
-                               "AND     ",   "XOR     ",   "OR      ", "CP        "};
+static const char *arith[8] = {"ADD     A,", "ADC     A,", "SUB",      "SBC     A,",
+                               "AND",        "XOR",        "OR",       "CP"};
 const char       *ireg;        // temp. index register string
 
     switch(a & 0xC0) {
@@ -475,14 +503,15 @@ const char       *ireg;        // temp. index register string
                 G("JP      %4.4Xh",WORD_1_2);
                 break;
             case 0x01:                  // 0xCB
+                CB = a;
                 a = Opcodes[++adr];     // get extended opcode
                 d = (a >> 3) & 7;
                 e = a & 7;
                 switch(a & 0xC0) {
                 case 0x00:
                     {
-                    static const char *str[8] = {"RLC","RRC","RL ","RR ","SLA","SRA","SLL","SRL"};
-                    G("%s     %s",str[d],reg[e]);
+                    static const char *str[8] = {"RLC","RRC","RL","RR","SLA","SRA","SLL","SRL"};
+                    G("%-8s%s",str[d],reg[e]);
                     }
                     break;
                 case 0x40:
@@ -495,6 +524,8 @@ const char       *ireg;        // temp. index register string
                     G("SET     %d,%s",d,reg[e]);
                     break;
                 }
+                if ( verboseMode > 1 )
+                    appendADE( s, a ); // debug for CB xx
                 break;
             case 0x02:
                 G("OUT     (%2.2Xh),A",BYTE_1);
@@ -523,9 +554,10 @@ const char       *ireg;        // temp. index register string
             if(d & 1) {
                 switch(d >> 1) {
                 case 0x00:
-		            G("CALL    %4.4Xh",WORD_1_2);
+                    G("CALL    %4.4Xh",WORD_1_2);
                     break;
                 case 0x02:              // 0xED
+                    ED = a;
                     a = Opcodes[++adr]; // get extended opcode
                     d = (a >> 3) & 7;
                     e = a & 7;
@@ -590,8 +622,11 @@ const char       *ireg;        // temp. index register string
                         }
                         break;
                     }
+                    if ( verboseMode > 1 )
+                        appendADE( s, a ); // debug info for ED xx
                     break;
                 default:                // 0x01 (0xDD) = IX, 0x03 (0xFD) = IY
+                    DDFD = a;
                     ireg = (a & 0x20) ? "IY" : "IX";
                     a = Opcodes[++adr]; // get extended opcode
                     d = (a >> 3) & 7;
@@ -677,13 +712,14 @@ const char       *ireg;        // temp. index register string
                         G("LD      SP,%s",ireg);
                         break;
                     case 0xCB:
+                        CB = a;
                         a = BYTE_2; // additional subopcodes
                         d = (a >> 3) & 7;
                         switch(a & 0xC0) {
                         case 0x00:
                             {
                             static const char *str[8] = {"RLC","RRC","RL","RR","SLA","SRA","SLL","SRL"};
-                            G("%s     (%s+%2.2Xh)",str[d],ireg,BYTE_1);
+                            G("%-8s(%s+%2.2Xh)",str[d],ireg,BYTE_1);
                             }
                             break;
                         case 0x40:
@@ -696,16 +732,16 @@ const char       *ireg;        // temp. index register string
                             G("SET     %d,(%s+%2.2Xh)",d,ireg,BYTE_1);
                             break;
                         }
+                        if ( verboseMode > 1 )
+                            appendADE( s, a ); // debug info for DD/FD CB xx
                         break;
                     }
+                    if ( verboseMode > 1 && !CB )
+                            appendADE( s, a ); // debug info for DD/FD xx
                     break;
-                }
-            } else {
-                if((d >> 1)==3)
-	                G("PUSH    AF");
-                else
-                    G("PUSH    %s",dreg[d >> 1]);
-            }
+                 }
+            } else
+                G("PUSH    %s", ( d >> 1 ) == 3 ? "AF" : dreg[ d >> 1 ] );
             break;
         case 0x06:
             G("%-8s%2.2Xh",arith[d],BYTE_1);
@@ -716,7 +752,28 @@ const char       *ireg;        // temp. index register string
         }
         break;
     }
+    if ( verboseMode > 1 && !CB && !DDFD && !ED )
+        appendADE( s, a ); // debug info only for non-prefixed opcodes
 }
+
+
+static void usage( const char *fullpath ) {
+    const char *progname = 0;
+    char c;
+    while ( ( c = *fullpath++ ) )
+        if ( c == '/' || c == '\\' )
+            progname = fullpath;
+    printf( "Usage:\n"
+            "  %s [-fXX] [-oXXXX] [-p] [-r] [-v] [-x] <infile> [<outfile>]\n"
+            "    -fXX    fill unused memory, XX = 0x00 .. 0xFF\n"
+            "    -oXXXX  org XXXX = 0x0000 .. 0xFFFF\n"
+            "    -p      parse program flow\n"
+            "    -r      parse also rst and nmi\n"
+            "    -v      increase verbosity\n"
+            "    -x      show hexdump\n",
+            progname );
+}
+
 
 // Read, parse, disassembly and output
 int        main(int argc, char **argv)
@@ -724,22 +781,111 @@ int        main(int argc, char **argv)
 FILE     *f;
 char     s[80];          // output string
 int      codeSize;
+int      offset = 0;
+
+
+    char *inPath = 0, *outPath = 0;
+    int hexdump = 0;
+    int parse = 0;
+    int rst_parse = 0;
+
+
+    fprintf( stderr, "TurboDis Z80 - small disassembler for Z80 code\n" );
+
+    int i, j;
+    int fill = 0;
+    int result;
+    for ( i = 1, j = 0; i < argc; i++ ) {
+        if ( '-' == argv[ i ][ 0 ] ) {
+            switch ( argv[ i ][ ++j ] ) {
+            case 'f':                   // fill
+                if ( argv[ i ][ ++j ] ) // "-fXX"
+                    result = sscanf( argv[ i ] + j, "%x", &fill );
+                else if ( i < argc - 1 ) // "-f XX"
+                    result = sscanf( argv[ ++i ], "%x", &fill );
+                if ( result )
+                    fill &= 0x00FF; // limit to byte size
+                else {
+                    fprintf( stderr, "Error: option -f needs a hexadecimal argument\n" );
+                    return 1;
+                }
+                j = 0; // end of this arg group
+                break;
+            case 'o':                   // offset
+                if ( argv[ i ][ ++j ] ) // "-oXXXX"
+                    result = sscanf( argv[ i ] + j, "%x", &offset );
+                else if ( i < argc - 1 ) // "-o XXXX"
+                    result = sscanf( argv[ ++i ], "%x", &offset );
+                if ( result )
+                    offset &= 0xFFFF; // limit to 64K
+                else {
+                    fprintf( stderr, "Error: option -o needs a hexadecimal argument\n" );
+                    return 1;
+                }
+                j = 0; // end of this arg group
+                break;
+            case 'p': // parse program flow
+                parse = 1;
+                break;
+            case 'r': // parse rst & nmi flow
+                rst_parse = parse = 1;
+                break;
+            case 'v':
+                ++verboseMode;
+                break;
+            case 'x':
+                hexdump = 1;
+                break;
+            default:
+                usage( argv[ 0 ] );
+                return 1;
+            }
+
+            if ( j && argv[ i ][ j + 1 ] ) { // one more arg char
+                --i;                         // keep this arg group
+                continue;
+            }
+            j = 0; // start from the beginning in next arg group
+        } else {
+            if ( !inPath )
+                inPath = argv[ i ];
+            else if ( !outPath )
+                outPath = argv[ i ];
+            else {
+                usage( argv[ 0 ] );
+                return 1;
+            } // check next arg string
+        }
+    }
+
+
+
 
     f = fopen("EPROM","rb");
-    if(!f) // else try the 1st argument as input
-        if (argc == 1 || !(f = fopen(argv[1],"rb")))
+    if(!f) { // else try the cmd line argument as input
+        if (!inPath || !(f = fopen(inPath,"rb")))
             return -1;
-    codeSize = fread(Opcodes,1,sizeof(Opcodes),f); // read the data, report the code size
+        if ( strlen( inPath ) > 4 && !strcmp( inPath + strlen( inPath ) - 4, ".com" ) )
+            offset = 0x100;
+    }
+    memset( Opcodes, 0xFF, sizeof(Opcodes)); // set to 0xFF for typical EPROM behaviour
+    memset( OpcodesFlags, Empty, sizeof(Opcodes)); // undefined for now
+
+    codeSize = fread(Opcodes + offset, 1, sizeof(Opcodes) - offset, f); // read the data, report the code size
     fclose(f);
-
-    for(int i=0;i<codeSize;i++)         // default: all read bytes are data
-        OpcodesFlags[i] = Data;
-    for(int i=0;i<0x40;i+=0x08)
-        if((OpcodesFlags[i] & 0x0F) == Data)
-            ParseOpcodes(i);        // RST vectors are executable
-    if((OpcodesFlags[0x66] & 0x0F) == Data)
-        ParseOpcodes(0x66);         // NMI vector is also executable
-
+    MSG( 1, "Loaded %d data bytes into RAM range [0x%04X...0x%04X]\n", codeSize, offset, offset + codeSize - 1 );
+    codeSize += offset;
+    if ( parse ) {
+        for(int i=0;i<codeSize;i++)         // default: all read bytes are data
+            OpcodesFlags[i] = Data;
+        if ( rst_parse ) {
+            for(int i=0;i<0x40;i+=0x08)
+                if((OpcodesFlags[i] & 0x0F) == Data)
+                    ParseOpcodes(i);        // RST vectors are executable
+            if((OpcodesFlags[0x66] & 0x0F) == Data)
+                ParseOpcodes(0x66);         // NMI vector is also executable
+        }
+    }
 #if FUTURA_189
     ParseOpcodes(0xA41);
     ParseOpcodes(0xDB6);        // value displays
@@ -774,11 +920,11 @@ int      codeSize;
     ParseOpcodes(0x16CF);
 #endif
 
-    if (argc < 3 || !(f = fopen(argv[2],"w")))
+    if (!outPath  || !(f = fopen(outPath,"w")))
         f = stdout;
 //    f = fopen("OUTPUT","w");
     if(!f) return -1;
-    for(uint16_t adr=0; adr < codeSize; ) { // process only the read data
+    for(uint16_t adr=offset; adr < codeSize; ) { // process only the read data
         int i;
 
         if((OpcodesFlags[adr] & 0x0F) == Data) {
@@ -791,19 +937,19 @@ int      codeSize;
             adr += i;
         } else {
             int len = OpcodeLen(adr);
-#if 0
-            if(OpcodesFlags[adr] & 0x10)
-                fprintf(f,"L%4.4X:  ",adr);
-            else
-                fprintf(f,"        ");
-#else
-            fprintf(f,"%4.4X: ",(uint16_t)adr);
-            for(i=0;i<len;i++)
-                fprintf(f,"%2.2X ",Opcodes[adr+i]);
-            for(i=4;i>len;i--)
-                fprintf(f,"   ");
-            fprintf(f," ");
-#endif
+            if ( hexdump ) {
+                if(OpcodesFlags[adr] & 0x10)
+                    fprintf(f,"L%4.4X:  ",adr);
+                else
+                    fprintf(f,"        ");
+            } else {
+                fprintf(f,"%4.4X: ",(uint16_t)adr);
+                for(i=0;i<len;i++)
+                    fprintf(f,"%2.2X ",Opcodes[adr+i]);
+                for(i=4;i>len;i--)
+                    fprintf(f,"   ");
+                fprintf(f," ");
+            }
             Disassemble(adr,s,sizeof(s));
             fprintf(f,"%s\n",s);
             adr += len;
