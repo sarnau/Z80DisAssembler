@@ -19,13 +19,16 @@ typedef struct {
     uint16_t   p;          // additional parameter
 } ShortSym;
 
-static const ShortSym    Pseudo[] = {    { 0x100,"DEFB",0x0000}, { 0x100,"DB",0x0000},
-                            { 0x101,"DEFM",0x0000}, { 0x101,"DM",0x0000},
-                            { 0x102,"DEFS",0x0000}, { 0x102,"DS",0x0000},
-                            { 0x103,"DEFW",0x0000}, { 0x103,"DW",0x0000},
-                            { 0x109,"ELSE",0x0000}, { 0x104,"END",0x0000},
-                            { 0x108,"ENDIF",0x0000},{ 0x105,"EQU",0x0000}, { 0x107,"IF",0x0000},
-                            { 0x106,"ORG",0x0000},  { 0x10A,"PRINT",0x0000} };
+
+static const ShortSym    Pseudo[] = {
+                            { DEFB,"DEFB",0x0000}, { DEFB,"DB",0x0000},
+                            { DEFM,"DEFM",0x0000}, { DEFM,"DM",0x0000},
+                            { DEFS,"DEFS",0x0000}, { DEFS,"DS",0x0000},
+                            { DEFW,"DEFW",0x0000}, { DEFW,"DW",0x0000},
+                            { ELSE,"ELSE",0x0000}, { END,"END",0x0000},
+                            { ENDIF,"ENDIF",0x0000},{ EQU,"EQU",0x0000}, { IF,"IF",0x0000},
+                            { ORG,"ORG",0x0000},  { PRINT,"PRINT",0x0000}
+};
 // type: (+ 0x200)
 // 0x00 : IN,OUT
 // 0x01 : 1 byte opcode, no parameter
@@ -64,8 +67,8 @@ static const ShortSym    Opcodes[] = {   { 0x206,"ADC",0x88CE}, { 0x206,"ADD",0x
                             { 0x201,"RRA",0x1F00}, { 0x20F,"RRC",0x080E}, { 0x201,"RRCA",0x0F00},
                             { 0x203,"RRD",0xED67}, { 0x20A,"RST",0xC700}, { 0x206,"SBC",0x98DE},
                             { 0x201,"SCF",0x3700}, { 0x204,"SET",0xCBC0}, { 0x20F,"SLA",0x2026},
-                            { 0x20F,"SRA",0x282E}, { 0x20F,"SRL",0x383E}, { 0x206,"SUB",0x90D6},
-                            { 0x206,"XOR",0xA8EE} };
+                            { 0x20F,"SLL",0x3036}, { 0x20F,"SRA",0x282E}, { 0x20F,"SRL",0x383E},
+                            { 0x206,"SUB",0x90D6}, { 0x206,"XOR",0xA8EE} };
 static const ShortSym    Register[] = {  { 0x307,"A",0x0000}, { 0x323,"AF",0x0000},      // 00…07: B,C,D,E,H,L,(HL),A
                             { 0x300,"B",0x0000}, { 0x310,"BC",0x0000},      // 10…13: BC,DE,HL,SP
                             { 0x301,"C",0x0000}, { 0x302,"D",0x0000},       //    23:         ,AF
@@ -187,42 +190,47 @@ char        *AktLine = sp;          // remember the beginning of the line
 CommandP    cp = Cmd;               // ptr to the command buffer
 
     sp2=AktUpLine;
-    while((*sp2++ = toupper(*sp++)) != 0) ; // conver to capital letters
+    while((*sp2++ = toupper(*sp++))); // convert to capital letters
     sp = AktUpLine;
     while(1) {                      // parse the whole string
-        while((isspace(c = *sp++)) != 0) ;  // ignore spaces
+        while((isspace(c = *sp++))) ;  // ignore spaces
         if(c == ';') break;         // a comment => ignore the rest of the line
         if(c == 0) break;           // end of line => done
         typ = ILLEGAL;              // default: an illegal type
+        base = 0;
         dollar = false;
         if (c == '$') {             // PC or the beginning of a hex number
             if (isalnum(*sp) && *sp <= 'F') {
                 base = 16;
                 c = *sp++;
-            } else {
+            } else
                 dollar = true;
-            }
+        } else if ( strlen( sp ) > 2 && c == '0' && *sp == 'X' && isxdigit( sp[ 1 ] ) ) { // 0x.. ?
+            sp++;      // skip 0X
+            c = *sp++; // 1st hex digit
+            base = 16;
         }
         if (dollar) {
             typ = NUM;
             val = PC;
-        } else if(isalnum_(c)) {    // A…Z, a…z, 0-9
+        } else if (isalnum_(c)) {   // A…Z, a…z, 0-9
             sp2 = stemp;            // ptr to the beginning
             maxc = 0;               // highest ASCII character
-            base = 0;               // a string
             do {
                 *sp2++ = c;
                 if(isalnum_(*sp)) { // not the last character?
                     if(c > maxc)
                         maxc = c;   // remember the highest ASCII character
                 } else {            // last character
-                    if(stemp + 1 != sp2) {          // at least one character
-                        if(c == 'D') if(maxc <= '9') base = 10; // "D" after a number: decimal number
-                        if(c == 'H') if(maxc <= 'F') base = 16; // "H" after a number: hexadecimal number
-                        if(c == 'B') if(maxc <= '1') base = 2;  // "B" after a number: binary number
-                        if(base > 0) sp2--;
+                    if ( base == 16 ) {
+                        base = ( maxc <= 'F' && c <= 'F' ) ? 16 : 0; // invalid hex digits?
+                    } else if (stemp + 1 != sp2) {          // at least one character
+                        if (c == 'H' && maxc <= 'F') base = 16; // "H" after a number: hexadecimal number
+                        else if (c == 'D' && maxc <= '9') base = 10; // "D" after a number: decimal number
+                        else if (c == 'B' && maxc <= '1') base = 2;  // "B" after a number: binary number
+                        if (base > 0) --sp2;
                     }
-                    if(c >= '0' && c <= '9') if(maxc <= '9') base = 10;
+                    if (!base && c >= '0' && c <= '9' && maxc <= '9') base = 10;
                 }
                 c = *sp++;          // get the next character
             } while(isalnum_(c));
