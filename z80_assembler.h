@@ -12,6 +12,20 @@ typedef enum {
     STRING          // a string
 } Type;
 
+typedef enum {
+    DEFB = 0x100,
+    DEFM,
+    DEFS,
+    DEFW,
+    END,
+    EQU,
+    ORG,
+    IF,
+    ENDIF,
+    ELSE,
+    PRINT
+} Pseudo_t;
+
 // encoded opcode
 typedef struct {
     Type    typ;
@@ -25,7 +39,7 @@ typedef struct RecalcList {
                                 // 0 = 1 byte
                                 // 1 = 2 byte (low/high!)
                                 // 2 = 1 byte, PC relative to patch address + 1
-    uint16_t            adr;    // patched address
+    uint32_t            adr;    // patched address
     CommandP            c;      // ptr to the formular
 } RecalcList,*RecalcListP;
 
@@ -43,12 +57,17 @@ typedef struct Symbol {
 
 extern Command      Cmd[80];            // a tokenized line
 extern SymbolP      SymTab[256];        // symbol table (split by the upper hash value)
-extern uint16_t     PC;                 // current address
+extern uint32_t     PC;                 // current address
 extern uint8_t      *RAM;               // 64K RAM of the Z80
+extern const uint32_t RAMSIZE;
+extern uint32_t     minPC;
+extern uint32_t     maxPC;
 
 extern RecalcListP  LastRecalc;         // to patch the type for incomplete formulas
 
 void        Error(const char* s);       // print a fatal error message
+
+void        MSG( int mode, const char *format, ... );
 
 int32_t     CalcTerm(CommandP *c);      // calculate a formula
 
