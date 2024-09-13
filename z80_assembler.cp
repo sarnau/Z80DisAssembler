@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <sys/syslimits.h>
 
 #include "kk_ihex_write.h"
 #include "z80_assembler.h"
@@ -68,7 +69,8 @@ static void listOneLine( uint32_t firstPC, uint32_t lastPC, const char *oneLine 
  ***/
 int        main( int argc, char **argv )
 {
-    char *filename = nullptr;
+    char *inputfilename = nullptr;
+    char outputfilename[PATH_MAX];
 
     char *oneLine;
     int i, j;
@@ -138,25 +140,25 @@ int        main( int argc, char **argv )
             }
             j = 0; // start from the beginning in next arg group
         } else {
-            if ( !filename )
-                filename = argv[ i ];
+            if ( !inputfilename )
+                inputfilename = argv[ i ];
             else {
                 usage( argv[ 0 ] );
                 return 1;
             } // check next arg string
         }
     }
-    if ( !filename ) {
+    if ( !inputfilename ) {
         usage( argv[ 0 ] );
         return 1;
     }
 
-    infile = fopen( filename, "r" );
+    infile = fopen( inputfilename, "r" );
     if ( !infile ) {
-        fprintf( stderr, "Error: cannot open infile %s\n", filename );
+        fprintf( stderr, "Error: cannot open infile %s\n", inputfilename );
         return 1;
     }
-    MSG( 1, "Processing infile \"%s\"\n", filename );
+    MSG( 1, "Processing infile \"%s\"\n", inputfilename );
 
     LineNo = 1;
     InitSymTab();                       // init symbol table
@@ -200,21 +202,24 @@ int        main( int argc, char **argv )
         }
     }
 
-    if ( !no_outfile && strlen( filename ) > 4 && !strcmp( filename + strlen( filename ) - 4, ".asm" ) ) {
+    if ( !no_outfile && strlen( inputfilename ) > 4 && !strcmp( inputfilename + strlen( inputfilename ) - 4, ".asm" ) ) {
+        strncpy(outputfilename, inputfilename, sizeof(outputfilename));
+
         // create out file name(s) from in file name
-        sprintf( filename + strlen( filename ) - 3, com ? "com" : "bin" );
-        MSG( 1, "Creating output file %s\n", filename );
-        outbin = fopen( filename, "wb" );
+        size_t fnamelen = strlen( outputfilename );
+        strncpy( outputfilename + fnamelen - 3, com ? "com" : "bin", sizeof(outputfilename) -fnamelen - 3 );
+        MSG( 1, "Creating output file %s\n", outputfilename );
+        outbin = fopen( outputfilename, "wb" );
         if ( !outbin ) {
-            fprintf( stderr, "Error: Can't open output file \"%s\".\n", filename );
+            fprintf( stderr, "Error: Can't open output file \"%s\".\n", outputfilename );
             return 1;
         }
 
-        sprintf( filename + strlen( filename ) - 3, "hex" );
-        MSG( 1, "Creating output file %s\n", filename );
-        outhex = fopen( filename, "wb" );
+        strncpy( outputfilename + fnamelen - 3, "hex", sizeof(outputfilename) -fnamelen - 3 );
+        MSG( 1, "Creating output file %s\n", outputfilename );
+        outhex = fopen( outputfilename, "wb" );
         if ( !outhex ) {
-            fprintf( stderr, "Error: Can't open output file \"%s\".\n", filename );
+            fprintf( stderr, "Error: Can't open output file \"%s\".\n", outputfilename );
             return 1;
         }
     } else {

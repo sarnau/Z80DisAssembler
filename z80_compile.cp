@@ -87,7 +87,7 @@ uint8_t     *iRAM = RAM + PC;
 uint32_t    op0;
 uint8_t     Op0_24,Op0_16;
 int16_t     op1,op2;
-int32_t     value1,value2;
+int32_t     value1 = 0,value2 = 0;
 RecalcListP op1Recalc,op2Recalc;
 
     checkPC( PC ); // detect min, max and overflow (wrap around)
