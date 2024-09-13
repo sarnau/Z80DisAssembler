@@ -8,7 +8,7 @@
 #include <string.h>
 #include "z80_assembler.h"
 
-uint16_t    PC;         // current address
+uint32_t    PC;         // current address
 uint8_t     *RAM;       // RAM of the Z80
 long        LineNo;     // current line number
 char        LineBuf[MAXLINELENGTH]; // buffer for the current line
