@@ -835,7 +835,7 @@ CommandP    cptr;
 uint16_t    iPC = PC;
 
     switch(c++->val) {      // all pseudo opcodes
-    case 0x100:             // DEFB
+    case DEFB:
                 c--;
                 do {
                     c++;
@@ -848,7 +848,7 @@ uint16_t    iPC = PC;
                     }
                 } while((c->typ == OPCODE)&&(c->val == ','));
                 break;
-    case 0x101:             // DEFM
+    case DEFM:
                 if(c->typ != STRING) {
                     Error("DEFM requires a string");
                 } else {
@@ -862,14 +862,14 @@ uint16_t    iPC = PC;
                     } while((c->typ == OPCODE)&&(c->val == ','));
                 }
                 break;
-    case 0x102:             // DEFS
+    case DEFS:
                 cptr = c;
                 iPC +=  CalcTerm(&cptr);        // advance the PC
                 c = cptr;
                 if(LastRecalc)
                     Error("symbol not defined");
                 break;
-    case 0x103:             // DEFW
+    case DEFW:
                 c--;
                 do {
                     uint32_t val;
@@ -881,35 +881,35 @@ uint16_t    iPC = PC;
                         LastRecalc->typ = 1;    // add two bytes
                         LastRecalc->adr = iPC;
                     }
-                    RAM[iPC++] = val >> 8;
                     RAM[iPC++] = val;
+                    RAM[iPC++] = val >> 8;
                 } while((c->typ == OPCODE)&&(c->val == ','));
                 break;
-    case 0x104:             // END
+    case END:
                 if(IgnoreUntilIF)
                     Error("IF without ENDIF");
                 Error("Reached the end of the source code -> exit");
                 exit(0);
-    case 0x106:             // ORG
+    case ORG:
                 cptr = c;
                 iPC = CalcTerm(&cptr);              // set the PC
                 c = cptr;
                 if(LastRecalc)
                     Error("symbol not defined");
                 break;
-    case 0x107:             // IF
+    case IF:
                 cptr = c;
                 if(!CalcTerm(&cptr))                // IF condition false?
                     IgnoreUntilIF = true;           // then ignore the next block
                 c = cptr;
                 break;
-    case 0x108:             // ENDIF
+    case ENDIF:
                 IgnoreUntilIF = false;              // never ignore from here on
                 break;
-    case 0x109:             // ELSE
+    case ELSE:
                 IgnoreUntilIF = !IgnoreUntilIF;     // flip the condition
                 break;
-    case 0x10A:             // PRINT
+    case PRINT:
                 if(c->typ != STRING)
                     Error("PRINT requires a string parameter");
                 else
