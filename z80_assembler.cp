@@ -302,6 +302,8 @@ static void listOneLine( uint32_t firstPC, uint32_t lastPC, const char *oneLine 
         }
         if ( i < 4 )
             printf( "%*s\n", 5+3*(4-i)+int(strlen( oneLine ) ), oneLine );
+        else if ( (i & 3) != 3 )
+            printf( "\n" );
     }
 }
 
