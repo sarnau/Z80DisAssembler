@@ -7,7 +7,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <sys/syslimits.h>
+#include <limits.h>
 
 #include "kk_ihex_write.h"
 #include "z80_assembler.h"
