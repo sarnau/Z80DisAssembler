@@ -62,12 +62,15 @@ extern uint8_t      *RAM;               // 64K RAM of the Z80
 extern const uint32_t RAMSIZE;
 extern uint32_t     minPC;
 extern uint32_t     maxPC;
+extern bool         listing;
+extern void         checkPC( uint32_t pc );
 
 extern RecalcListP  LastRecalc;         // to patch the type for incomplete formulas
 
 void        Error(const char* s);       // print a fatal error message
 
 void        MSG( int mode, const char *format, ... );
+void        list( const char *format, ... );
 
 int32_t     CalcTerm(CommandP *c);      // calculate a formula
 
