@@ -209,6 +209,8 @@ RecalcListP op1Recalc,op2Recalc;
                     break;
                 case 0x330: // IX
                 case 0x331: // IY
+                    if ( Op0_24 != 0x80 ) // only ADD IX/IY,RR
+                        Error("Only ADD IX,[BC,DE,IX,SP] or ADD IY,[BC,DE,IY,SP] are possible");
                     switch(op2) {
                     case 0x310: // BC
                         *iRAM++ = (op1 & 0x01)?0xFD:0xDD;
