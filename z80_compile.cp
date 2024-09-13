@@ -2,9 +2,8 @@
  *  compile a tokenzied line
  ***/
 
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
+#include <stdio.h>
+#include <stdlib.h>
 #include "z80_assembler.h"
 
 void            DoPseudo(CommandP *cp);
@@ -90,8 +89,6 @@ int16_t     op1,op2;
 int32_t     value1,value2;
 RecalcListP op1Recalc,op2Recalc;
 
-    checkPC( PC ); // detect min, max and overflow (wrap around)
-
     op0 = c++->val;                             // opcode
     op1 = op2 = 0;
     if(c->typ) {
@@ -105,10 +102,6 @@ RecalcListP op1Recalc,op2Recalc;
     }
     Op0_24 = op0 >> 24;
     Op0_16 = op0 >> 16;
-
-    // helpful for debugging and enhancement
-    MSG( 3, "op0: 0x%08x, op1: 0x%03x, value1: 0x%08x, op2: 0x%03x, value2: 0x%08x\n", op0, op1, value1, op2, value2 );
-
     switch(op0 & 0xFF) {        // opcode
     case 0x00:                              // IN/OUT
                 if(Op0_24 & 0x01) {         // OUT?
@@ -826,8 +819,7 @@ RecalcListP op1Recalc,op2Recalc;
                 while(c->typ) c++;
     }
     *cp = c;
-    PC = iRAM - RAM;   // PC -> next opcode
-    checkPC( PC - 1 ); // last RAM position used
+    PC = iRAM - RAM;
 }
 
 /***
@@ -848,7 +840,6 @@ uint16_t    iPC = PC;
                 do {
                     c++;
                     cptr = c;
-                    checkPC( iPC );
                     RAM[iPC++] = CalcTerm(&cptr);
                     c = cptr;
                     if(LastRecalc) {            // expression undefined?
@@ -866,7 +857,6 @@ uint16_t    iPC = PC;
                     do {
                         c++;                        // skip opcode or comma
                         sp = (char*)c++->val;       // value = ptr to the string
-                        checkPC( iPC + strlen( sp ) - 1 ); // will it overflow?
                         while(*sp)
                             RAM[iPC++] = *sp++;     // transfer the string
                     } while((c->typ == OPCODE)&&(c->val == ','));
@@ -891,7 +881,6 @@ uint16_t    iPC = PC;
                         LastRecalc->typ = 1;    // add two bytes
                         LastRecalc->adr = iPC;
                     }
-                    checkPC( iPC + 1 ); // will it overflow?
                     RAM[iPC++] = val;
                     RAM[iPC++] = val >> 8;
                 } while((c->typ == OPCODE)&&(c->val == ','));
@@ -979,18 +968,14 @@ uint16_t        val;
                 uint16_t adr = r->adr;
                 switch(r->typ) {
                 case 0x00:              // add a single byte
-                            list( "%04X <- %02X\n", adr, value );
                             RAM[adr] = value;
                             break;
                 case 0x01:              // add two bytes
-                            list( "%04X <- %02X %02X\n", adr, value & 0xFF, value >> 8 );
                             RAM[adr++] = value;
                             RAM[adr] = value>>8;
                             break;
                 case 0x02:              // PC-rel-byte
-                            value -= (adr + 1);
-                            list( "%04X <- %02X\n", adr, value );
-                            RAM[adr] = value;
+                            RAM[adr] = value - (adr + 1);
                             break;
                 default:    Error("unknown recalc type");
                 }
