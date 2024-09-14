@@ -22,19 +22,37 @@ If a routine wanted an "address" to the Z80 code, it is in fact an offset to the
 This program is freeware. It is not allowed to be used as a base for a commercial product!
  ***/
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdint.h>
-#include <stdarg.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <cstdint>
+#include <cstdarg>
+#include "file.h"
+#include "kk_ihex_read.h"
 
-#define FUTURA_189         1    // jump table for the Futura Aquariencomputer ROM V1.89 https://github.com/sarnau/FuturaAquariumComputer
-#define DETECT_JUMPTABLES  0    // if 1, then break if a jump table is detected
+
+const uint32_t CODESIZE = 0x10000;
 
 // memory for the code
-static uint8_t Opcodes[0x10000];
+static uint8_t Opcodes[ CODESIZE ];
+
+// type of opcode
+static uint8_t OpcodesFlags[ CODESIZE ];
+
+// Flag per memory cell: opcode, operand or data
+// bit 4 = 1, a JR or similar jumps to this address
+enum {
+    Empty,
+    Opcode,
+    Operand,
+    Data
+};
+
+static uint32_t RAM_low_addr = CODESIZE;
+static uint32_t RAM_high_addr = 0;
 
 static int verboseMode = 0;
+
 
 static void MSG( int mode, const char *format, ... ) {
     if ( verboseMode >= mode ) {
@@ -61,17 +79,6 @@ static void appendADE( char *s, size_t ssize, int a, char *prefix = nullptr ) {
                 e & 0x01 ? '1' : '0' );
     }
 }
-
-// Flag per memory cell: opcode, operand or data
-// bit 4 = 1, a JR or similar jumps to this address
-enum {
-    Empty,
-    Opcode,
-    Operand,
-    Data
-};
-
-uint8_t OpcodesFlags[sizeof(Opcodes)];
 
 // calculate the length of an opcode
 static int OpcodeLen(uint16_t p)
@@ -355,14 +362,15 @@ bool     label = true;
 
 static void GenerateOutput(char *buf, size_t bufsize, const char *Format, ...)
 {
-	va_list AP;
+    va_list AP;
 
-	va_start(AP, Format);
-	vsnprintf(buf, bufsize, Format, AP);
-	va_end(AP);
+    va_start(AP, Format);
+    vsnprintf(buf, bufsize, Format, AP);
+    va_end(AP);
 }
 
 #define G(...) GenerateOutput(s,ssize,__VA_ARGS__)
+
 
 // Disassemble
 void        Disassemble(uint16_t adr,char *s,size_t ssize)
@@ -755,7 +763,7 @@ const char       *ireg;        // temp. index register string
         break;
     }
     if ( verboseMode > 1 && !CB && !DDFD && !ED )
-        appendADE(s,ssize,a); // debug info only for non-prefixed opcodes
+        appendADE(s,ssize,a); // this debug info only for non-prefixed opcodes
 }
 
 
@@ -777,24 +785,27 @@ static void usage( const char *fullpath ) {
 }
 
 
-// Read, parse, disassembly and output
-int        main(int argc, char **argv)
-{
-FILE     *f;
-char     s[80];          // output string
-int      codeSize;
-int      offset = 0;
+static bool load_bin( char *path, uint32_t offset );
 
 
+// read, parse, disassemble and output
+int main( int argc, char *argv[] ) {
     char *inPath = 0, *outPath = 0;
-    int hexdump = 0;
-    int parse = 0;
-    int rst_parse = 0;
-
+    FILE *outfile;
+    // const char *progname;
+    bool hexdump = false;
+    bool parse = false;
+    bool rst_parse = false;
+    uint32_t codesize;
+    uint32_t adr = 0;
+    char oneLine[ 256 ]; // output string
 
     fprintf( stderr, "TurboDis Z80 - small disassembler for Z80 code\n" );
 
     int i, j;
+    uint32_t offset = 0;
+    uint32_t start = 0;
+    // int len = 0;
     int fill = 0;
     int result;
     for ( i = 1, j = 0; i < argc; i++ ) {
@@ -826,17 +837,30 @@ int      offset = 0;
                 }
                 j = 0; // end of this arg group
                 break;
-            case 'p': // parse program flow
-                parse = 1;
+            case 's':                   // start
+                if ( argv[ i ][ ++j ] ) // "-sXXXX"
+                    result = sscanf( argv[ i ] + j, "%x", &start );
+                else if ( i < argc - 1 ) // "-s XXXX"
+                    result = sscanf( argv[ ++i ], "%x", &start );
+                if ( result )
+                    start &= 0xFFFF; // limit to 64K
+                else {
+                    fprintf( stderr, "Error: option -s needs a hexadecimal argument\n" );
+                    return 1;
+                }
+                j = 0; // end of this arg group
                 break;
-            case 'r': // parse rst & nmi flow
-                rst_parse = parse = 1;
+            case 'p': // parse program flow
+                parse = true;
+                break;
+            case 'r': // parse program flow
+                rst_parse = true;
                 break;
             case 'v':
                 ++verboseMode;
                 break;
             case 'x':
-                hexdump = 1;
+                hexdump = true;
                 break;
             default:
                 usage( argv[ 0 ] );
@@ -860,103 +884,147 @@ int      offset = 0;
         }
     }
 
+    memset( Opcodes, fill, sizeof( Opcodes ) );
+    memset( OpcodesFlags, Empty, sizeof( OpcodesFlags) );
 
+    if ( !load_bin( inPath, offset ) )
+        return 1;
 
+    codesize = RAM_high_addr + 1 - RAM_low_addr;
+    offset = RAM_low_addr;
 
-    f = fopen("EPROM","rb");
-    if(!f) { // else try the cmd line argument as input
-        if (!inPath || !(f = fopen(inPath,"rb")))
-            return -1;
-        if ( strlen( inPath ) > 4 && !strcmp( inPath + strlen( inPath ) - 4, ".com" ) )
-            offset = 0x100;
-    }
-    memset( Opcodes, 0xFF, sizeof(Opcodes)); // set to 0xFF for typical EPROM behaviour
-    memset( OpcodesFlags, Empty, sizeof(Opcodes)); // undefined for now
+    codesize += offset;
 
-    codeSize = fread(Opcodes + offset, 1, sizeof(Opcodes) - offset, f); // read the data, report the code size
-    fclose(f);
-    MSG( 1, "Loaded %d data bytes into RAM range [0x%04X...0x%04X]\n", codeSize, offset, offset + codeSize - 1 );
-    codeSize += offset;
     if ( parse ) {
-        for(int i=0;i<codeSize;i++)         // default: all read bytes are data
-            OpcodesFlags[i] = Data;
+        for ( uint32_t i = RAM_low_addr; i <= RAM_high_addr; i++ ) // all data
+            OpcodesFlags[ i ] = Data;
         if ( rst_parse ) {
-            for(int i=0;i<0x40;i+=0x08)
-                if((OpcodesFlags[i] & 0x0F) == Data)
-                    ParseOpcodes(i);        // RST vectors are executable
-            if((OpcodesFlags[0x66] & 0x0F) == Data)
-                ParseOpcodes(0x66);         // NMI vector is also executable
+            for ( i = 0; i < 0x40; i += 0x08 )
+                if ( ( OpcodesFlags[ i ] & 0x0F ) == Data )
+                    ParseOpcodes( i ); // parse RST vectors (if needed)
+            if ( ( OpcodesFlags[ 0x66 ] & 0x0F ) == Data )
+                ParseOpcodes( 0x66 ); // parse also NMI vector (if needed)
         }
+        ParseOpcodes( RAM_low_addr );
     }
-#if FUTURA_189
-    ParseOpcodes(0xA41);
-    ParseOpcodes(0xDB6);        // value displays
-    ParseOpcodes(0xF5D);
-    ParseOpcodes(0xE83);
 
-    ParseOpcodes(0x0978);
-    ParseOpcodes(0x0933);
-    ParseOpcodes(0x11D3);
-    ParseOpcodes(0x1292);
-    ParseOpcodes(0x0AF8);
-    ParseOpcodes(0x098F);
-    ParseOpcodes(0x0B99);
-    ParseOpcodes(0x0BB3);
-    ParseOpcodes(0x0B4A);       // key command
-    ParseOpcodes(0x0B12);
-    ParseOpcodes(0x08FF);
-    ParseOpcodes(0x08F0);
-    ParseOpcodes(0x0BDA);
-    ParseOpcodes(0x0BCD);
-    ParseOpcodes(0x0A7E);
-    ParseOpcodes(0x0C2D);
-    ParseOpcodes(0x0AA6);
-    ParseOpcodes(0x0848);
+    if ( outPath ) {
+        outfile = fopen( outPath, "w" );
+        if ( !outfile ) {
+            fprintf( stderr, "Error: cannot open outfile \"%s\"\n", outPath );
+            return 1;
+        }
+    } else
+        outfile = stdout;
 
-    ParseOpcodes(0x1660);
-    ParseOpcodes(0x166E);
-    ParseOpcodes(0x167C);       // special key commands
-    ParseOpcodes(0x168A);
-    ParseOpcodes(0x1698);
-    ParseOpcodes(0x16A6);
-    ParseOpcodes(0x16CF);
-#endif
+    if ( start >= offset )
+        adr = start;
+    else
+        adr = offset;
 
-    if (!outPath  || !(f = fopen(outPath,"w")))
-        f = stdout;
-//    f = fopen("OUTPUT","w");
-    if(!f) return -1;
-    for(uint16_t adr=offset; adr < codeSize; ) { // process only the read data
-        int i;
+    fprintf( outfile, "        ORG     $%04X\n", adr );
+    while ( adr <= RAM_high_addr ) {
+        uint32_t len, i;
 
-        if((OpcodesFlags[adr] & 0x0F) == Data) {
-            fprintf(f,"L%4.4X:  DEFB",(uint16_t)adr);
-            for(i=0;i<16;i++) {
-                if((OpcodesFlags[adr+i] & 0x0F) != Data) break;
-                fprintf(f,"%c%2.2Xh",(i)?',':' ',Opcodes[adr+i]);
+        if ( ( OpcodesFlags[ adr ] & 0x0F ) == Data ) {
+            fprintf( outfile, "L%4.4X:  DEFB", (uint16_t)adr );
+            for ( i = 0; i < 16; i++ ) {
+                if ( ( OpcodesFlags[ adr + i ] & 0x0F ) != Data || adr + i >= codesize )
+                    break;
+                fprintf( outfile, "%s%2.2Xh", ( i ) ? "," : "    ", Opcodes[ adr + i ] );
             }
-            fprintf(f,"\n");
+            fprintf( outfile, "\n" );
             adr += i;
         } else {
-            int len = OpcodeLen(adr);
-            if ( hexdump ) {
-                if(OpcodesFlags[adr] & 0x10)
-                    fprintf(f,"L%4.4X:  ",adr);
+            len = OpcodeLen( adr ); // get length of opcode
+            if ( !hexdump ) {
+                if ( OpcodesFlags[ adr ] & 0x10 )
+                    fprintf( outfile, "L%4.4X:  ", adr );
                 else
-                    fprintf(f,"        ");
+                    fprintf( outfile, "        " );
             } else {
-                fprintf(f,"%4.4X: ",(uint16_t)adr);
-                for(i=0;i<len;i++)
-                    fprintf(f,"%2.2X ",Opcodes[adr+i]);
-                for(i=4;i>len;i--)
-                    fprintf(f,"   ");
-                fprintf(f," ");
+                fprintf( outfile, "%4.4X    ", (uint16_t)adr );
+                for ( i = 0; i < len; i++ )
+                    fprintf( outfile, "%2.2X ", Opcodes[ adr + i ] );
+                for ( i = 4; i > len; i-- )
+                    fprintf( outfile, "   " );
+                fprintf( outfile, "    " );
             }
-            Disassemble(adr,s,sizeof(s));
-            fprintf(f,"%s\n",s);
+
+            Disassemble( adr, oneLine, sizeof( oneLine ) );
+            fprintf( outfile, "%s\n", oneLine );
             adr += len;
         }
     }
-    fclose(f);
-    return 0;
+    fclose( outfile );
+}
+
+
+static bool load_bin( char *path, uint32_t offset ) {
+    // int address;
+    uint32_t size;
+    char buffer[ 256 ];
+
+    FILE *fp = fopen( path, "rb" );
+    if ( !fp )
+        return false;
+
+    if ( strlen( path ) > 4 && !strcmp( path + strlen( path ) - 4, ".hex" ) ) {
+        struct ihex_state ihex;
+        ihex_begin_read( &ihex );
+        while ( fgets( buffer, sizeof( buffer ), fp ) )
+            ihex_read_bytes( &ihex, buffer, strlen( buffer ) );
+        ihex_end_read( &ihex );
+        fclose( fp );
+        return true;
+    } else if ( strlen( path ) > 4 && !strcmp( path + strlen( path ) - 4, ".z80" ) ) {
+        int ret = read_header( fp, &offset, &size );
+        if ( ret ) {
+            fprintf( stderr, "Error %d reading z80 file \"%s\"\n", ret, path );
+            return false;
+        }
+    } else { // bin file
+        fseek( fp, 0, SEEK_END );
+        size = ftell( fp );
+        fseek( fp, 0, SEEK_SET );
+    }
+    if ( size < 1 || size > CODESIZE - offset ) {
+        fprintf( stderr, "File size (%u bytes) exceeds available RAM size (%u bytes)\n", size, CODESIZE - offset );
+        fclose( fp );
+        return false;
+    }
+    if ( size != (unsigned)fread( Opcodes + offset, 1, (size_t)size, fp ) ) {
+        fprintf( stderr, "Cannot read file: \"%s\"\n", path );
+        fclose( fp );
+        return false;
+    }
+    RAM_low_addr = offset;
+    RAM_high_addr = offset + size - 1;
+    MSG( 2, "Loaded %d data bytes from \"%s\" into RAM region [$%04X...$%04X]\n", size, path, RAM_low_addr, RAM_high_addr );
+    fclose( fp );
+    return true;
+}
+
+
+// callback from kk_ihex_read.c when data has arrived
+ihex_bool_t ihex_data_read( struct ihex_state *ihex, ihex_record_type_t type, ihex_bool_t error ) {
+    static uint32_t hex_data_size = 0;
+    error = error || ( ihex->length < ihex->line_length );
+    if ( type == IHEX_DATA_RECORD && !error ) {
+        MSG( 4, "IHEX addr: $%04X, data len: %d\n", IHEX_LINEAR_ADDRESS( ihex ), ihex->length );
+        memcpy( Opcodes + IHEX_LINEAR_ADDRESS( ihex ), ihex->data, ihex->length );
+        if ( IHEX_LINEAR_ADDRESS( ihex ) < RAM_low_addr )
+            RAM_low_addr = IHEX_LINEAR_ADDRESS( ihex );
+        if ( IHEX_LINEAR_ADDRESS( ihex ) + ihex->length >= RAM_high_addr )
+            RAM_high_addr = IHEX_LINEAR_ADDRESS( ihex ) + ihex->length - 1;
+        hex_data_size += ihex->length;
+    } else if ( type == IHEX_END_OF_FILE_RECORD ) {
+        MSG( 4, "IHEX EOF\n" );
+        MSG( 1, "Loaded %d data bytes from hexfile into RAM region [$%04X...$%04X]\n", hex_data_size, RAM_low_addr, RAM_high_addr );
+        if ( hex_data_size != RAM_high_addr + 1 - RAM_low_addr )
+            MSG( 1, "(size: %d Bytes)\n", RAM_high_addr + 1 - RAM_low_addr );
+        else
+            MSG( 1, "" );
+    }
+    return !error;
 }
