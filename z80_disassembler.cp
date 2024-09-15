@@ -27,7 +27,6 @@ This program is freeware. It is not allowed to be used as a base for a commercia
 #include <cstring>
 #include <cstdint>
 #include <cstdarg>
-#include "file.h"
 #include "kk_ihex_read.h"
 
 
@@ -957,6 +956,47 @@ int main( int argc, char *argv[] ) {
         }
     }
     fclose( outfile );
+}
+
+
+// the z80 format is used by the z80-asm
+// http://wwwhomes.uni-bielefeld.de/achim/z80-asm.html
+// *.z80 files are bin files with a header telling the bin offset
+// struct z80_header {
+//     const char  *MAGIC = Z80MAGIC;
+//     uint16_t    offset;
+// }
+// reads header of a file and tests if it's Z80 ASM file, reads address
+// return value: 0=OK, 1=this is not a z80 asm file, 2,3=seek malfunction
+int read_header( FILE *stream, uint32_t *address, uint32_t *len ) {
+    const char *Z80MAGIC = "Z80ASM\032\n";
+    char tmp[ 9 ];
+    unsigned char c[ 2 ];
+    unsigned a, b;
+    int ret = 0;
+
+    b = strlen( Z80MAGIC );
+    tmp[ b ] = 0;
+    a = 0;
+    if ( ( a = fread( tmp, 1, b, stream ) ) != b )
+        ret = 1;
+    else if ( strcmp( tmp, Z80MAGIC ) )
+        ret = 1;
+    else if ( fread( c, 1, 2, stream ) != 2 )
+        ret = 1;
+    else {
+        *address = ( c[ 1 ] << 8 ) | c[ 0 ];
+        a = b + 2;
+    }
+    if ( fseek( stream, 0, SEEK_END ) )
+        ret = 2;
+    else if ( ( b = ftell( stream ) ) < a )
+        ret = 2;
+    else
+        *len = b - a;
+    if ( fseek( stream, a, SEEK_SET ) )
+        ret = 3;
+    return ret;
 }
 
 

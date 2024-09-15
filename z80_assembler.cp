@@ -22,6 +22,7 @@ bool        listing = false;
 
 static FILE *infile;
 static FILE *outbin;
+static FILE *outz80;
 static FILE *outhex;
 
 int verboseMode = 0;
@@ -62,7 +63,7 @@ void usage( const char *fullpath ) {
 
 
 static void listOneLine( uint32_t firstPC, uint32_t lastPC, const char *oneLine );
-
+static void write_header( FILE *stream, uint32_t address );
 
 /***
  *  …
@@ -207,6 +208,7 @@ int        main( int argc, char **argv )
 
         // create out file name(s) from in file name
         size_t fnamelen = strlen( outputfilename );
+        // bin or com (=bin file that starts at PC=0x100) file
         strncpy( outputfilename + fnamelen - 3, com ? "com" : "bin", sizeof(outputfilename) -fnamelen - 3 );
         MSG( 1, "Creating output file %s\n", outputfilename );
         outbin = fopen( outputfilename, "wb" );
@@ -214,7 +216,15 @@ int        main( int argc, char **argv )
             fprintf( stderr, "Error: Can't open output file \"%s\".\n", outputfilename );
             return 1;
         }
-
+        // z80 file is a bin file with a header telling the file offset
+        strncpy( outputfilename + fnamelen - 3, "z80", sizeof(outputfilename) -fnamelen - 3 );
+        MSG( 1, "Creating output file %s\n", outputfilename );
+        outz80 = fopen( outputfilename, "wb" );
+        if ( !outz80 ) {
+            fprintf( stderr, "Error: Can't open output file \"%s\".\n", outputfilename );
+            return 1;
+        }
+        // intel hex file
         strncpy( outputfilename + fnamelen - 3, "hex", sizeof(outputfilename) -fnamelen - 3 );
         MSG( 1, "Creating output file %s\n", outputfilename );
         outhex = fopen( outputfilename, "wb" );
@@ -232,6 +242,10 @@ int        main( int argc, char **argv )
         else
             fwrite( RAM + offset, sizeof( uint8_t ), maxPC + 1 - offset, outbin );
         fclose( outbin );
+    }
+    if ( outz80 ) {
+        write_header( outz80, minPC );
+        fwrite( RAM + minPC, sizeof( uint8_t ), maxPC + 1 - minPC, outz80 );
     }
     if ( outhex ) {
         // write the data as intel hex
@@ -310,6 +324,23 @@ static void listOneLine( uint32_t firstPC, uint32_t lastPC, const char *oneLine 
         else if ( (i & 3) )
             printf( "\n" );
     }
+}
+
+
+// the z80 format is used by the z80-asm
+// http://wwwhomes.uni-bielefeld.de/achim/z80-asm.html
+// *.z80 files are bin files with a header telling the bin offset
+// struct z80_header {
+//     const char  *MAGIC = Z80MAGIC;
+//     uint16_t    offset;
+// }
+static void write_header( FILE *stream, uint32_t address ) {
+    const char *Z80MAGIC = "Z80ASM\032\n";
+    unsigned char c[ 2 ];
+    c[ 0 ] = address & 255;
+    c[ 1 ] = address >> 8;
+    fwrite( Z80MAGIC, 1, strlen( Z80MAGIC ), stream );
+    fwrite( c, 1, 2, stream );
 }
 
 
