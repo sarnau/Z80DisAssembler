@@ -198,8 +198,9 @@ void TokenizeLine( char *sp ) {
     char c;
     char stemp[ MAXLINELENGTH ];
     char maxc;
-    int16_t base;
-    bool dollar;
+    int16_t base;  // binary, decimal or hex
+    bool dollar;   // token starts with $
+    bool digit1st; // token starts with digit [0-9]
     Type typ;
     long val;
     char AktUpLine[ MAXLINELENGTH ];
@@ -230,7 +231,7 @@ void TokenizeLine( char *sp ) {
             sp++;                                                                         // skip 0X
             c = *sp++;                                                                    // 1st hex digit
             base = 16;
-        }
+        } else digit1st = isdigit( c );
         if ( dollar ) {
             typ = NUM;
             val = PC;
@@ -246,12 +247,12 @@ void TokenizeLine( char *sp ) {
                     if ( base == 16 ) {
                         base = ( maxc <= 'F' && c <= 'F' ) ? 16 : 0; // invalid hex digits?
                     } else if ( stemp + 1 != sp2 ) {                 // at least one character
-                        if ( c == 'H' && maxc <= 'F' )
-                            base = 16; // "H" after a number: hexadecimal number
+                        if ( digit1st && c == 'H' && maxc <= 'F' )
+                            base = 16; // starts with digit and ends with 'H': hex number
                         else if ( c == 'D' && maxc <= '9' )
-                            base = 10; // "D" after a number: decimal number
+                            base = 10; // 'D' after a number: decimal number
                         else if ( c == 'B' && maxc <= '1' )
-                            base = 2; // "B" after a number: binary number
+                            base = 2; // 'B' after a number: binary number
                         if ( base > 0 )
                             --sp2;
                     }
