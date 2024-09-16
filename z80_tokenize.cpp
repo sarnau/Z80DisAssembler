@@ -194,13 +194,12 @@ int isalnum_( char c ) { return isalnum( c ) || c == '_'; }
  *  tokenize a single line
  ***/
 void TokenizeLine( char *sp ) {
-    char *sp2;
+    char *tp, *sp2;
     char c;
     char stemp[ MAXLINELENGTH ];
     char maxc;
-    int16_t base;  // binary, decimal or hex
-    bool dollar;   // token starts with $
-    bool digit1st; // token starts with digit [0-9]
+    int16_t base; // binary, decimal or hex
+    bool dollar;  // token starts with $
     Type typ;
     long val;
     char AktUpLine[ MAXLINELENGTH ];
@@ -218,6 +217,7 @@ void TokenizeLine( char *sp ) {
             break; // a comment => ignore the rest of the line
         if ( c == 0 )
             break;     // end of line => done
+        tp = sp - 1;   // pointer to current token
         typ = ILLEGAL; // default: an illegal type
         base = 0;
         dollar = false;
@@ -227,11 +227,11 @@ void TokenizeLine( char *sp ) {
                 c = *sp++;
             } else
                 dollar = true;
-        } else if ( strlen( sp ) > 2 && c == '0' && *sp == 'X' && isxdigit( sp[ 1 ] ) ) { // 0x.. ?
-            sp++;                                                                         // skip 0X
-            c = *sp++;                                                                    // 1st hex digit
+        } else if ( !strncmp( tp, "0X", 2 ) && isxdigit( tp[ 2 ] ) ) {
+            sp++;      // skip 'X'
+            c = *sp++; // 1st hex digit
             base = 16;
-        } else digit1st = isdigit( c );
+        }
         if ( dollar ) {
             typ = NUM;
             val = PC;
@@ -247,7 +247,7 @@ void TokenizeLine( char *sp ) {
                     if ( base == 16 ) {
                         base = ( maxc <= 'F' && c <= 'F' ) ? 16 : 0; // invalid hex digits?
                     } else if ( stemp + 1 != sp2 ) {                 // at least one character
-                        if ( digit1st && c == 'H' && maxc <= 'F' )
+                        if ( isdigit( tp[ 0 ] ) && c == 'H' && maxc <= 'F' )
                             base = 16; // starts with digit and ends with 'H': hex number
                         else if ( c == 'D' && maxc <= '9' )
                             base = 10; // 'D' after a number: decimal number
@@ -272,7 +272,8 @@ void TokenizeLine( char *sp ) {
                 }
                 typ = NUM; // type: a number
             } else {
-                if ( *stemp >= 'A' ) {                 // first character not a digit?
+                // first character not a digit or token doesn't start with "$" or "0X"?
+                if ( *stemp >= 'A' && tp[ 0 ] != '$' && strncmp( tp, "0X", 2 ) ) {
                     SymbolP sym = FindSymbol( stemp ); // an opcode or a symbol
                     if ( !sym )
                         break;          // error (out of memory)
@@ -288,7 +289,7 @@ void TokenizeLine( char *sp ) {
                         val = sym->val; // parameter, ID
                     }
                 } else
-                    Error( "symbols can't start with digits" );
+                    Error( "symbols can't start with '$' or digits" );
             }
         } else {
             typ = OPCODE;
@@ -339,12 +340,10 @@ void TokenizeLine( char *sp ) {
                 val = c;
             }
         }
-#if DEBUG
-        printf( "type:%2.2X value:%8.8lX\n", typ, val );
-#endif
         cp->typ = typ;
         cp->val = val; // copy into the command buffer
         cp++;
+        MSG( 2, "type:%2.2X value:%8.8lX\n", typ, val );
     }
     cp->typ = ILLEGAL;
     cp->val = 0; // terminate the command buffer
