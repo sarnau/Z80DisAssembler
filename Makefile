@@ -1,11 +1,11 @@
 CC=gcc
+# CC=clang
+
 CFLAGS=-I. -Wall
+
 DEPS = z80_assembler.h kk_ihex_read.h kk_ihex_write.h Makefile
 
 %.o: %.cpp $(DEPS)
-	$(CC) -c -o $@ $< $(CFLAGS)
-
-%.o: %.cp $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
 %.o: %.c $(DEPS)
