@@ -397,13 +397,13 @@ void Disassemble( uint16_t adr, char *s, size_t ssize ) {
                 G( "EX      AF,AF'" );
                 break;
             case 0x02:
-                G( "DJNZ    %4.4Xh", adr + 2 + BYTE_1 );
+                G( "DJNZ    $%4.4X", adr + 2 + BYTE_1 );
                 break;
             case 0x03:
-                G( "JR      %4.4Xh", adr + 2 + BYTE_1 );
+                G( "JR      $%4.4X", adr + 2 + BYTE_1 );
                 break;
             default:
-                G( "JR      %s,%4.4Xh", cond[ d & 3 ], adr + 2 + BYTE_1 );
+                G( "JR      %s,$%4.4X", cond[ d & 3 ], adr + 2 + BYTE_1 );
                 break;
             }
             break;
@@ -411,7 +411,7 @@ void Disassemble( uint16_t adr, char *s, size_t ssize ) {
             if ( a & 0x08 ) {
                 G( "ADD     HL,%s", dreg[ d >> 1 ] );
             } else {
-                G( "LD      %s,%4.4Xh", dreg[ d >> 1 ], WORD_1_2 );
+                G( "LD      %s,$%4.4X", dreg[ d >> 1 ], WORD_1_2 );
             }
             break;
         case 0x02:
@@ -429,16 +429,16 @@ void Disassemble( uint16_t adr, char *s, size_t ssize ) {
                 G( "LD      A,(DE)" );
                 break;
             case 0x04:
-                G( "LD      (%4.4Xh),HL", WORD_1_2 );
+                G( "LD      ($%4.4X),HL", WORD_1_2 );
                 break;
             case 0x05:
-                G( "LD      HL,(%4.4Xh)", WORD_1_2 );
+                G( "LD      HL,($%4.4X)", WORD_1_2 );
                 break;
             case 0x06:
-                G( "LD      (%4.4Xh),A", WORD_1_2 );
+                G( "LD      ($%4.4X),A", WORD_1_2 );
                 break;
             case 0x07:
-                G( "LD      A,(%4.4Xh)", WORD_1_2 );
+                G( "LD      A,($%4.4X)", WORD_1_2 );
                 break;
             }
             break;
@@ -455,7 +455,7 @@ void Disassemble( uint16_t adr, char *s, size_t ssize ) {
             G( "DEC     %s", reg[ d ] );
             break;
         case 0x06: // LD   d,n
-            G( "LD      %s,%2.2Xh", reg[ d ], BYTE_1 );
+            G( "LD      %s,$%2.2X", reg[ d ], BYTE_1 );
             break;
         case 0x07: {
             static const char *str[ 8 ] = { "RLCA", "RRCA", "RLA", "RRA", "DAA", "CPL", "SCF", "CCF" };
@@ -502,12 +502,12 @@ void Disassemble( uint16_t adr, char *s, size_t ssize ) {
             }
             break;
         case 0x02:
-            G( "JP      %s,%4.4Xh", cond[ d ], WORD_1_2 );
+            G( "JP      %s,$%4.4X", cond[ d ], WORD_1_2 );
             break;
         case 0x03:
             switch ( d ) {
             case 0x00:
-                G( "JP      %4.4Xh", WORD_1_2 );
+                G( "JP      $%4.4X", WORD_1_2 );
                 break;
             case 0x01: // 0xCB
                 CB = a;
@@ -533,10 +533,10 @@ void Disassemble( uint16_t adr, char *s, size_t ssize ) {
                     appendADE( s, ssize, a ); // debug for CB xx
                 break;
             case 0x02:
-                G( "OUT     (%2.2Xh),A", BYTE_1 );
+                G( "OUT     ($%2.2X),A", BYTE_1 );
                 break;
             case 0x03:
-                G( "IN      A,(%2.2Xh)", BYTE_1 );
+                G( "IN      A,($%2.2X)", BYTE_1 );
                 break;
             case 0x04:
                 G( "EX      (SP),HL" );
@@ -553,13 +553,13 @@ void Disassemble( uint16_t adr, char *s, size_t ssize ) {
             }
             break;
         case 0x04:
-            G( "CALL    %s,%4.4Xh", cond[ d ], WORD_1_2 );
+            G( "CALL    %s,$%4.4X", cond[ d ], WORD_1_2 );
             break;
         case 0x05:
             if ( d & 1 ) {
                 switch ( d >> 1 ) {
                 case 0x00:
-                    G( "CALL    %4.4Xh", WORD_1_2 );
+                    G( "CALL    $%4.4X", WORD_1_2 );
                     break;
                 case 0x02: // 0xED
                     ED = a;
@@ -589,9 +589,9 @@ void Disassemble( uint16_t adr, char *s, size_t ssize ) {
                             break;
                         case 0x03:
                             if ( d & 1 ) {
-                                G( "LD      %s,(%4.4Xh)", dreg[ d >> 1 ], WORD_1_2 );
+                                G( "LD      %s,($%4.4X)", dreg[ d >> 1 ], WORD_1_2 );
                             } else {
-                                G( "LD      (%4.4Xh),%s", WORD_1_2, dreg[ d >> 1 ] );
+                                G( "LD      ($%4.4X),%s", WORD_1_2, dreg[ d >> 1 ] );
                             }
                             break;
                         case 0x04: {
@@ -637,10 +637,10 @@ void Disassemble( uint16_t adr, char *s, size_t ssize ) {
                         G( "ADD     %s,DE", ireg );
                         break;
                     case 0x21:
-                        G( "LD      %s,%4.4Xh", ireg, WORD_1_2 );
+                        G( "LD      %s,$%4.4X", ireg, WORD_1_2 );
                         break;
                     case 0x22:
-                        G( "LD      (%4.4Xh),%s", WORD_1_2, ireg );
+                        G( "LD      ($%4.4X),%s", WORD_1_2, ireg );
                         break;
                     case 0x23:
                         G( "INC     %s", ireg );
@@ -649,19 +649,19 @@ void Disassemble( uint16_t adr, char *s, size_t ssize ) {
                         G( "ADD     %s,%s", ireg, ireg );
                         break;
                     case 0x2A:
-                        G( "LD      %s,(%4.4Xh)", ireg, WORD_1_2 );
+                        G( "LD      %s,($%4.4X)", ireg, WORD_1_2 );
                         break;
                     case 0x2B:
                         G( "DEC     %s", ireg );
                         break;
                     case 0x34:
-                        G( "INC     (%s+%2.2Xh)", ireg, BYTE_1 );
+                        G( "INC     (%s+$%2.2X)", ireg, BYTE_1 );
                         break;
                     case 0x35:
-                        G( "DEC     (%s+%2.2Xh)", ireg, BYTE_1 );
+                        G( "DEC     (%s+$%2.2X)", ireg, BYTE_1 );
                         break;
                     case 0x36:
-                        G( "LD      (%s+%2.2Xh),%2.2Xh", ireg, BYTE_1, BYTE_2 );
+                        G( "LD      (%s+$%2.2X),$%2.2X", ireg, BYTE_1, BYTE_2 );
                         break;
                     case 0x39:
                         G( "ADD     %s,SP", ireg );
@@ -673,7 +673,7 @@ void Disassemble( uint16_t adr, char *s, size_t ssize ) {
                     case 0x66:
                     case 0x6E:
                     case 0x7E:
-                        G( "LD      %s,(%s+%2.2Xh)", reg[ d ], ireg, BYTE_1 );
+                        G( "LD      %s,(%s+$%2.2X)", reg[ d ], ireg, BYTE_1 );
                         break;
                     case 0x70:
                     case 0x71:
@@ -682,7 +682,7 @@ void Disassemble( uint16_t adr, char *s, size_t ssize ) {
                     case 0x74:
                     case 0x75:
                     case 0x77:
-                        G( "LD      (%s+%2.2Xh),%s", ireg, BYTE_1, reg[ e ] );
+                        G( "LD      (%s+$%2.2X),%s", ireg, BYTE_1, reg[ e ] );
                         break;
                     case 0x86:
                     case 0x8E:
@@ -692,7 +692,7 @@ void Disassemble( uint16_t adr, char *s, size_t ssize ) {
                     case 0xAE:
                     case 0xB6:
                     case 0xBE:
-                        G( "%-8s(%s+%2.2Xh)", arith[ d ], ireg, BYTE_1 );
+                        G( "%-8s(%s+$%2.2X)", arith[ d ], ireg, BYTE_1 );
                         break;
                     case 0xE1:
                         G( "POP     %s", ireg );
@@ -716,16 +716,16 @@ void Disassemble( uint16_t adr, char *s, size_t ssize ) {
                         switch ( a & 0xC0 ) {
                         case 0x00: {
                             static const char *str[ 8 ] = { "RLC", "RRC", "RL", "RR", "SLA", "SRA", "SLL", "SRL" };
-                            G( "%-8s(%s+%2.2Xh)", str[ d ], ireg, BYTE_1 );
+                            G( "%-8s(%s+$%2.2X)", str[ d ], ireg, BYTE_1 );
                         } break;
                         case 0x40:
-                            G( "BIT     %d,(%s+%2.2Xh)", d, ireg, BYTE_1 );
+                            G( "BIT     %d,(%s+$%2.2X)", d, ireg, BYTE_1 );
                             break;
                         case 0x80:
-                            G( "RES     %d,(%s+%2.2Xh)", d, ireg, BYTE_1 );
+                            G( "RES     %d,(%s+$%2.2X)", d, ireg, BYTE_1 );
                             break;
                         case 0xC0:
-                            G( "SET     %d,(%s+%2.2Xh)", d, ireg, BYTE_1 );
+                            G( "SET     %d,(%s+$%2.2X)", d, ireg, BYTE_1 );
                             break;
                         }
                         if ( verboseMode > 1 )
@@ -740,10 +740,10 @@ void Disassemble( uint16_t adr, char *s, size_t ssize ) {
                 G( "PUSH    %s", ( d >> 1 ) == 3 ? "AF" : dreg[ d >> 1 ] );
             break;
         case 0x06:
-            G( "%-8s%2.2Xh", arith[ d ], BYTE_1 );
+            G( "%-8s$%2.2X", arith[ d ], BYTE_1 );
             break;
         case 0x07:
-            G( "RST     %2.2Xh", a & 0x38 );
+            G( "RST     $%2.2X", a & 0x38 );
             break;
         }
         break;
@@ -917,7 +917,7 @@ int main( int argc, char *argv[] ) {
             for ( i = 0; i < 16; i++ ) {
                 if ( ( OpcodesFlags[ adr + i ] & 0x0F ) != Data || adr + i >= codesize )
                     break;
-                fprintf( outfile, "%s%2.2Xh", ( i ) ? "," : "    ", Opcodes[ adr + i ] );
+                fprintf( outfile, "%s$%2.2X", ( i ) ? "," : "    ", Opcodes[ adr + i ] );
             }
             fprintf( outfile, "\n" );
             adr += i;
@@ -1027,7 +1027,7 @@ static bool load_bin( char *path, uint32_t offset ) {
     }
     RAM_low_addr = offset;
     RAM_high_addr = offset + size - 1;
-    MSG( 2, "Loaded %d data bytes from \"%s\" into RAM region [$%04X...$%04X]\n", size, path, RAM_low_addr, RAM_high_addr );
+    MSG( 2, "Loaded %d data bytes from \"%s\" into RAM region [0x%04X...0x%04X]\n", size, path, RAM_low_addr, RAM_high_addr );
     fclose( fp );
     return true;
 }
@@ -1047,7 +1047,7 @@ ihex_bool_t ihex_data_read( struct ihex_state *ihex, ihex_record_type_t type, ih
         hex_data_size += ihex->length;
     } else if ( type == IHEX_END_OF_FILE_RECORD ) {
         MSG( 4, "IHEX EOF\n" );
-        MSG( 1, "Loaded %d data bytes from hexfile into RAM region [$%04X...$%04X]\n", hex_data_size, RAM_low_addr, RAM_high_addr );
+        MSG( 1, "Loaded %d data bytes from hexfile into RAM region [0x%04X...0x%04X]\n", hex_data_size, RAM_low_addr, RAM_high_addr );
         if ( hex_data_size != RAM_high_addr + 1 - RAM_low_addr )
             MSG( 1, "(size: %d Bytes)\n", RAM_high_addr + 1 - RAM_low_addr );
         else
