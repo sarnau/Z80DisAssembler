@@ -200,6 +200,7 @@ void TokenizeLine( char *sp ) {
     char maxc;
     int16_t base; // binary, decimal or hex
     bool dollar;  // token starts with $
+    bool dot;
     Type typ;
     long val;
     char AktUpLine[ MAXLINELENGTH ];
@@ -220,8 +221,12 @@ void TokenizeLine( char *sp ) {
         tp = sp - 1;   // pointer to current token
         typ = ILLEGAL; // default: an illegal type
         base = 0;
-        dollar = false;
-        if ( c == '$' ) { // PC or the beginning of a hex number
+        dot = false;    // pseudo opcodes can start with '.'
+        dollar = false; // $ = PC
+        if ( c == '.') {
+            c = *sp++;
+            dot = true;
+        } else if ( c == '$' ) { // PC or the beginning of a hex number
             if ( isalnum( *sp ) && *sp <= 'F' ) {
                 base = 16;
                 c = *sp++;
@@ -278,6 +283,8 @@ void TokenizeLine( char *sp ) {
                     if ( !sym )
                         break;          // error (out of memory)
                     if ( !sym->type ) { // typ = symbol?
+                        if ( dot )
+                            Error( "symbols can't start with '.'" );
                         typ = SYMBOL;
                         val = (long)sym;          // value = address of the symbol ptr
                         if ( !sym->first ) {      // symbol already exists?
@@ -287,6 +294,8 @@ void TokenizeLine( char *sp ) {
                     } else {
                         typ = OPCODE;   // an opcode
                         val = sym->val; // parameter, ID
+                        if ( dot && ( val  < 0x100 || val >= 0x200 ) ) // only pseudo opcodes
+                            Error( "opcodes can't start with '.'" );
                     }
                 } else
                     Error( "symbols can't start with '$' or digits" );
@@ -343,7 +352,28 @@ void TokenizeLine( char *sp ) {
         cp->typ = typ;
         cp->val = val; // copy into the command buffer
         cp++;
-        MSG( 2, "type:%2.2X value:%8.8lX\n", typ, val );
+
+        if ( verboseMode >= 3 )
+            switch( typ ) {
+            case ILLEGAL:
+                MSG( 3, "ILLEGAL\n" );
+                break;
+            case NUM:
+                MSG( 3, "NUM:    %lX\n", val );
+                break;
+            case OPCODE:
+                if ( val < 0x100 )
+                    MSG( 3, "OPCODE: '%c'\n", val );
+                else
+                    MSG( 3, "OPCODE: %lX\n", val );
+                break;
+            case SYMBOL:
+                MSG( 3, "SYMBOL: %s\n", val );
+                break;
+            case STRING:
+                MSG( 3, "STRING: \"%s\"\n", (char *)val );
+                break;
+            }
     }
     cp->typ = ILLEGAL;
     cp->val = 0; // terminate the command buffer

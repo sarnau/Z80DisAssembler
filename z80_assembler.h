@@ -51,6 +51,7 @@ extern const uint32_t RAMSIZE;
 extern uint32_t minPC;
 extern uint32_t maxPC;
 extern bool listing;
+extern int verboseMode;
 extern void checkPC( uint32_t pc );
 
 extern RecalcListP LastRecalc; // to patch the type for incomplete formulas

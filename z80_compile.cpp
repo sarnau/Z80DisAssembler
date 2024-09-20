@@ -23,6 +23,7 @@ int16_t GetOperand( CommandP *c, int32_t *value ) {
     *value = 0;
     typ = ( *c )->typ;
     val = ( *c )++->val; // get value and type
+    MSG( 2, "GetOperand( %d, %X, %d )\n", typ, val, *value );
     if ( typ == OPCODE ) {
         if ( ( val >= 0x300 ) && ( val <= 0x4FF ) ) {
             if ( ( val == 0x323 ) && ( ( *c )->typ == OPCODE ) && ( ( *c )->val == '\'' ) ) { // AF'?
@@ -87,6 +88,7 @@ int16_t GetOperand( CommandP *c, int32_t *value ) {
  *  test for an opcode
  ***/
 void DoOpcode( CommandP *cp ) {
+    MSG( 2, "DoOpcode( %X )\n", (*cp)->val );
     CommandP c = *cp;
     uint8_t *iRAM = RAM + PC;
     uint32_t op0;
@@ -144,6 +146,12 @@ void DoOpcode( CommandP *cp ) {
                 op2Recalc = nullptr; // processing done
             }
             *iRAM++ = value2;
+        } else if ( !(Op0_24 & 0x01) && ( op1 == 0x501 ) && ( op2 == 0 ) ) { //  undoc: IN (C))
+            *iRAM++ = 0xED;
+            *iRAM++ = 0x70;
+        } else if ( (Op0_24 & 0x01) && ( op1 == 0x281 ) && ( op2 == 0x501 ) && value1 == 0 ) { // undoc: OUT (C),0
+            *iRAM++ = 0xED;
+            *iRAM++ = 0x71;
         } else
             Error( "operands not allowed for IN/OUT" );
         break;
@@ -859,39 +867,34 @@ void DoOpcode( CommandP *cp ) {
 bool IgnoreUntilIF = false; // ignore all lines till next "ENDIF" (this could be a stack for nesting support)
 
 void DoPseudo( CommandP *cp ) {
+    MSG( 2, "DoPseudo( %d, %X )\n", (*cp)->typ, (*cp)->val );
     CommandP c = *cp;
     CommandP cptr;
     uint16_t iPC = PC;
 
     switch ( c++->val ) { // all pseudo opcodes
     case DEFB:
+    case DEFM:
         c--;
         do {
-            c++;
-            cptr = c;
-            checkPC( iPC );
-            RAM[ iPC++ ] = CalcTerm( &cptr );
-            c = cptr;
-            if ( LastRecalc ) {      // expression undefined?
-                LastRecalc->typ = 0; // add a single byte
-                LastRecalc->adr = iPC - 1;
-            }
-        } while ( ( c->typ == OPCODE ) && ( c->val == ',' ) );
-        break;
-    case DEFM:
-        if ( c->typ != STRING ) {
-            Error( "DEFM requires a string" );
-        } else {
-            char *sp;
-            c--;
-            do {
-                c++;                               // skip opcode or comma
+            c++;                               // skip opcode or comma
+            if ( c->typ != STRING ) {
+                cptr = c;
+                checkPC( iPC );
+                RAM[ iPC++ ] = CalcTerm( &cptr );
+                c = cptr;
+                if ( LastRecalc ) {      // expression undefined?
+                    LastRecalc->typ = 0; // add a single byte
+                    LastRecalc->adr = iPC - 1;
+                }
+            } else {
+                char *sp;
                 sp = (char *)c++->val;             // value = ptr to the string
                 checkPC( iPC + strlen( sp ) - 1 ); // will it overflow?
                 while ( *sp )
                     RAM[ iPC++ ] = *sp++; // transfer the string
-            } while ( ( c->typ == OPCODE ) && ( c->val == ',' ) );
-        }
+            }
+        } while ( ( c->typ == OPCODE ) && ( c->val == ',' ) );
         break;
     case DEFS:
         cptr = c;
@@ -957,6 +960,7 @@ void DoPseudo( CommandP *cp ) {
  *  Compile a single line
  ***/
 void CompileLine( void ) {
+    MSG( 2, "CompileLine()\n" );
     CommandP c = Cmd;
     CommandP cptr;
     SymbolP s;

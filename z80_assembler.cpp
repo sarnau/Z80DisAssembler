@@ -82,9 +82,8 @@ int main( int argc, char **argv ) {
     bool no_outfile = false;
 
 
-    puts( "TurboAss Z80 - a small 1-pass assembler for Z80 code" );
-    puts( "(c)1992/3 Sigma-Soft, Markus Fritze" );
-    puts( "" );
+    fprintf( stderr, "TurboAss Z80 - a small 1-pass assembler for Z80 code\n" );
+    fprintf( stderr, "(c)1992/3 Sigma-Soft, Markus Fritze\n\n" );
 
 
     for ( i = 1, j = 0; i < argc; i++ ) {
