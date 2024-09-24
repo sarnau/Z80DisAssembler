@@ -55,6 +55,7 @@ static uint32_t RAM_high_addr = 0;
 
 static int verboseMode = 0;
 
+static char label = '$';
 
 static void MSG( int mode, const char *format, ... ) {
     if ( verboseMode >= mode ) {
@@ -397,13 +398,13 @@ void Disassemble( uint16_t adr, char *s, size_t ssize ) {
                 G( "EX      AF,AF'" );
                 break;
             case 0x02:
-                G( "DJNZ    $%4.4X", adr + 2 + BYTE_1 );
+                G( "DJNZ    %c%4.4X", label, adr + 2 + BYTE_1 );
                 break;
             case 0x03:
-                G( "JR      $%4.4X", adr + 2 + BYTE_1 );
+                G( "JR      %c%4.4X", label, adr + 2 + BYTE_1 );
                 break;
             default:
-                G( "JR      %s,$%4.4X", cond[ d & 3 ], adr + 2 + BYTE_1 );
+                G( "JR      %s,%c%4.4X", cond[ d & 3 ], label, adr + 2 + BYTE_1 );
                 break;
             }
             break;
@@ -502,12 +503,12 @@ void Disassemble( uint16_t adr, char *s, size_t ssize ) {
             }
             break;
         case 0x02:
-            G( "JP      %s,$%4.4X", cond[ d ], WORD_1_2 );
+            G( "JP      %s,%c%4.4X", cond[ d ], label, WORD_1_2 );
             break;
         case 0x03:
             switch ( d ) {
             case 0x00:
-                G( "JP      $%4.4X", WORD_1_2 );
+                G( "JP      %c%4.4X", label, WORD_1_2 );
                 break;
             case 0x01: // 0xCB
                 CB = a;
@@ -553,13 +554,13 @@ void Disassemble( uint16_t adr, char *s, size_t ssize ) {
             }
             break;
         case 0x04:
-            G( "CALL    %s,$%4.4X", cond[ d ], WORD_1_2 );
+            G( "CALL    %s,%c%4.4X", cond[ d ], label, WORD_1_2 );
             break;
         case 0x05:
             if ( d & 1 ) {
                 switch ( d >> 1 ) {
                 case 0x00:
-                    G( "CALL    $%4.4X", WORD_1_2 );
+                    G( "CALL    %c%4.4X", label, WORD_1_2 );
                     break;
                 case 0x02: // 0xED
                     ED = a;
@@ -786,7 +787,7 @@ int main( int argc, char *argv[] ) {
     uint32_t adr = 0;
     char oneLine[ 256 ]; // output string
 
-    fprintf( stderr, "TurboDis Z80 - small disassembler for Z80 code\n" );
+    fprintf( stderr, "TurboDis Z80 - small disassembler for Z80 code\n\n" );
 
     int i, j;
     uint32_t offset = 0;
@@ -838,6 +839,7 @@ int main( int argc, char *argv[] ) {
                 break;
             case 'p': // parse program flow
                 parse = true;
+                label = 'L';
                 break;
             case 'r': // parse program flow
                 rst_parse = true;
@@ -925,18 +927,17 @@ int main( int argc, char *argv[] ) {
             len = OpcodeLen( adr ); // get length of opcode
             if ( !hexdump ) {
                 if ( OpcodesFlags[ adr ] & 0x10 )
-                    fprintf( outfile, "L%4.4X:  ", adr );
+                    fprintf( outfile, "%c%4.4X:  ", parse ? 'L' : '$', adr );
                 else
                     fprintf( outfile, "        " );
             } else {
-                fprintf( outfile, "%4.4X    ", (uint16_t)adr );
+                fprintf( outfile, "%c%4.4X   ", parse ? 'L' : '$', (uint16_t)adr );
                 for ( i = 0; i < len; i++ )
                     fprintf( outfile, "%2.2X ", Opcodes[ adr + i ] );
                 for ( i = 4; i > len; i-- )
                     fprintf( outfile, "   " );
                 fprintf( outfile, "    " );
             }
-
             Disassemble( adr, oneLine, sizeof( oneLine ) );
             fprintf( outfile, "%s\n", oneLine );
             adr += len;
@@ -1047,7 +1048,8 @@ ihex_bool_t ihex_data_read( struct ihex_state *ihex, ihex_record_type_t type, ih
         hex_data_size += ihex->length;
     } else if ( type == IHEX_END_OF_FILE_RECORD ) {
         MSG( 4, "IHEX EOF\n" );
-        MSG( 1, "Loaded %d data bytes from hexfile into RAM region [0x%04X...0x%04X]\n", hex_data_size, RAM_low_addr, RAM_high_addr );
+        MSG( 1, "Loaded %d data bytes from hexfile into RAM region [0x%04X...0x%04X]\n", hex_data_size, RAM_low_addr,
+             RAM_high_addr );
         if ( hex_data_size != RAM_high_addr + 1 - RAM_low_addr )
             MSG( 1, "(size: %d Bytes)\n", RAM_high_addr + 1 - RAM_low_addr );
         else

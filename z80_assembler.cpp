@@ -165,7 +165,7 @@ int main( int argc, char **argv ) {
     memset( RAM, fill, RAMSIZE );             // erase 64K RAM
     PC = 0x0000;                              // default start address of the code
 
-    while ( true ) {
+    while ( !reachedEnd ) {
         uint32_t prevPC = PC;
         oneLine = fgets( LineBuf, sizeof( LineBuf ), infile ); // read a single line
         if ( !oneLine )

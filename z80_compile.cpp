@@ -11,6 +11,8 @@ void DoPseudo( CommandP *cp );
 void DoOpcode( CommandP *cp );
 int16_t GetOperand( CommandP *cp, int32_t *value );
 
+bool reachedEnd = false;
+
 
 /***
  *  get operands for an opcode
@@ -88,7 +90,7 @@ int16_t GetOperand( CommandP *c, int32_t *value ) {
  *  test for an opcode
  ***/
 void DoOpcode( CommandP *cp ) {
-    MSG( 2, "DoOpcode( %X )\n", (*cp)->val );
+    MSG( 2, "DoOpcode( %X )\n", ( *cp )->val );
     CommandP c = *cp;
     uint8_t *iRAM = RAM + PC;
     uint32_t op0;
@@ -146,10 +148,10 @@ void DoOpcode( CommandP *cp ) {
                 op2Recalc = nullptr; // processing done
             }
             *iRAM++ = value2;
-        } else if ( !(Op0_24 & 0x01) && ( op1 == 0x501 ) && ( op2 == 0 ) ) { //  undoc: IN (C))
+        } else if ( !( Op0_24 & 0x01 ) && ( op1 == 0x501 ) && ( op2 == 0 ) ) { //  undoc: IN (C))
             *iRAM++ = 0xED;
             *iRAM++ = 0x70;
-        } else if ( (Op0_24 & 0x01) && ( op1 == 0x281 ) && ( op2 == 0x501 ) && value1 == 0 ) { // undoc: OUT (C),0
+        } else if ( ( Op0_24 & 0x01 ) && ( op1 == 0x281 ) && ( op2 == 0x501 ) && value1 == 0 ) { // undoc: OUT (C),0
             *iRAM++ = 0xED;
             *iRAM++ = 0x71;
         } else
@@ -867,7 +869,7 @@ void DoOpcode( CommandP *cp ) {
 bool IgnoreUntilIF = false; // ignore all lines till next "ENDIF" (this could be a stack for nesting support)
 
 void DoPseudo( CommandP *cp ) {
-    MSG( 2, "DoPseudo( %d, %X )\n", (*cp)->typ, (*cp)->val );
+    MSG( 2, "DoPseudo( %d, %X )\n", ( *cp )->typ, ( *cp )->val );
     CommandP c = *cp;
     CommandP cptr;
     uint16_t iPC = PC;
@@ -877,7 +879,7 @@ void DoPseudo( CommandP *cp ) {
     case DEFM:
         c--;
         do {
-            c++;                               // skip opcode or comma
+            c++; // skip opcode or comma
             if ( c->typ != STRING ) {
                 cptr = c;
                 checkPC( iPC );
@@ -903,6 +905,26 @@ void DoPseudo( CommandP *cp ) {
         if ( LastRecalc )
             Error( "symbol not defined" );
         break;
+    case FILL: {
+        uint16_t size, fill = 0;
+        cptr = c;
+        size = CalcTerm( &cptr ); // get the amount
+        c = cptr;
+        if ( LastRecalc )
+            Error( "symbol not defined" );
+        if ( c->typ == OPCODE && c->val == ',' ) { // ", val" part?
+            cptr = ++c;
+            fill = CalcTerm( &cptr ); // get the fill value
+            c = cptr;
+            if ( LastRecalc )
+                Error( "symbol not defined" );
+        } else
+            fill = 0;
+        checkPC( iPC + size - 1 );
+        while ( size-- )
+            RAM[ iPC++ ] = fill;
+        break;
+    }
     case DEFW:
         c--;
         do {
@@ -923,8 +945,8 @@ void DoPseudo( CommandP *cp ) {
     case END:
         if ( IgnoreUntilIF )
             Error( "IF without ENDIF" );
-        Error( "Reached the end of the source code -> exit" );
-        exit( 0 );
+        reachedEnd = true;
+        break;
     case ORG:
         cptr = c;
         iPC = CalcTerm( &cptr ); // set the PC
@@ -972,13 +994,12 @@ void CompileLine( void ) {
         s = (SymbolP)c->val;                        // value = ptr to the symbol
         if ( s->defined ) {
             Error( "symbol already defined" );
-            return;
         }
         c++; // next command
         if ( ( c->typ == OPCODE ) && ( c->val == ':' ) )
-            c++;                                             // ignore a ":" after a symbol
-        if ( ( c->typ == OPCODE ) && ( c->val == 0x105 ) ) { // EQU?
-            c++;                                             // skip EQU
+            c++;                                           // ignore a ":" after a symbol
+        if ( ( c->typ == OPCODE ) && ( c->val == EQU ) ) { // EQU?
+            c++;                                           // skip EQU
             cptr = c;
             s->val = CalcTerm( &cptr ); // calculate the expression
             c = cptr;
@@ -987,7 +1008,6 @@ void CompileLine( void ) {
             s->defined = true; // symbol now defined
             if ( c->typ != ILLEGAL ) {
                 Error( "EQU is followed by illegal data" );
-                return;
             }
         } else {
             s->val = PC;       // adresse = current PC
@@ -1032,10 +1052,10 @@ void CompileLine( void ) {
     if ( IgnoreUntilIF ) { // inside an IFs?
         if ( c->typ == OPCODE ) {
             switch ( c->val ) {
-            case 0x108:                // ENDIF reached?
+            case ENDIF:                // ENDIF reached?
                 IgnoreUntilIF = false; // start compiling
                 break;
-            case 0x109:                         // ELSE reached?
+            case ELSE:                          // ELSE reached?
                 IgnoreUntilIF = !IgnoreUntilIF; // toggle IF flag
                 break;
             }
