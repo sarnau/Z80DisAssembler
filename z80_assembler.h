@@ -12,7 +12,7 @@ typedef enum {
     STRING  // a string
 } Type;
 
-typedef enum { DEFB = 0x100, DEFM, DEFS, DEFW, END, EQU, ORG, IF, ENDIF, ELSE, PRINT } Pseudo_t;
+typedef enum { DEFB = 0x100, DEFM, DEFS, DEFW, END, EQU, ORG, IF, ENDIF, ELSE, PRINT, FILL } Pseudo_t;
 
 // encoded opcode
 typedef struct {
@@ -52,6 +52,7 @@ extern uint32_t minPC;
 extern uint32_t maxPC;
 extern bool listing;
 extern int verboseMode;
+extern bool reachedEnd;
 extern void checkPC( uint32_t pc );
 
 extern RecalcListP LastRecalc; // to patch the type for incomplete formulas

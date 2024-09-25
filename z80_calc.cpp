@@ -41,7 +41,7 @@ int32_t GetValue( CommandP *c ) {
                 Error( "Closing bracket is missing" );
             }
         } else
-        default:
+    default:
             Error( "Illegal symbol in a formula" );
     }
     ( *c )++; // skip value, symbol or bracket

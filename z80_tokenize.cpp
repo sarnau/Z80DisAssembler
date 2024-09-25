@@ -22,13 +22,18 @@ typedef struct {
 
 
 static const ShortSym Pseudo[] = {
-    { DEFB,"DEFB",0x0000 },  { DEFB,"DB",0x0000 },
-    { DEFM,"DEFM",0x0000 },  { DEFM,"DM",0x0000 },
-    { DEFS,"DEFS",0x0000 },  { DEFS,"DS",0x0000 },
-    { DEFW,"DEFW",0x0000 },  { DEFW,"DW",0x0000 },
-    { ELSE,"ELSE",0x0000 },  { END,"END",0x0000 },
-    { ENDIF,"ENDIF",0x0000 },{ EQU,"EQU",0x0000 }, { IF,"IF",0x0000 },
-    { ORG,"ORG",0x0000 },    { PRINT,"PRINT",0x0000 }
+    { DEFB, "DEFB", 0x0000 }, { DEFB,"DB",0x0000 },   // 0x100
+    { DEFM, "DEFM", 0x0000 }, { DEFM,"DM",0x0000 },   // 0x101
+    { DEFS, "DEFS", 0x0000 }, { DEFS,"DS",0x0000 },   // 0x102
+    { DEFW, "DEFW", 0x0000 }, { DEFW,"DW",0x0000 },   // 0x103
+    { END,  "END",  0x0000 },                         // 0x104
+    { EQU,  "EQU",  0x0000 },                         // 0x105
+    { ORG,  "ORG",  0x0000 },                         // 0x106
+    { IF,   "IF",   0x0000 },                         // 0x107
+    { ENDIF,"ENDIF",0x0000 },                         // 0x108
+    { ELSE, "ELSE", 0x0000 },                         // 0x109
+    { PRINT,"PRINT",0x0000 },                         // 0x10A
+    { FILL, "FILL", 0x0000 }                          // 0x10B
 };
 
 
@@ -223,7 +228,7 @@ void TokenizeLine( char *sp ) {
         base = 0;
         dot = false;    // pseudo opcodes can start with '.'
         dollar = false; // $ = PC
-        if ( c == '.') {
+        if ( c == '.' ) {
             c = *sp++;
             dot = true;
         } else if ( c == '$' ) { // PC or the beginning of a hex number
@@ -292,9 +297,9 @@ void TokenizeLine( char *sp ) {
                             sym->defined = false; // symbol value not defined
                         }
                     } else {
-                        typ = OPCODE;   // an opcode
-                        val = sym->val; // parameter, ID
-                        if ( dot && ( val  < 0x100 || val >= 0x200 ) ) // only pseudo opcodes
+                        typ = OPCODE;                                 // an opcode
+                        val = sym->val;                               // parameter, ID
+                        if ( dot && ( val < 0x100 || val >= 0x200 ) ) // only pseudo opcodes
                             Error( "opcodes can't start with '.'" );
                     }
                 } else
@@ -315,8 +320,8 @@ void TokenizeLine( char *sp ) {
                     sp++;
                 }
                 break;
-            case '=':
-                val = 0x105; // = matches EQU
+            case '=': // = matches EQU
+                val = EQU;
                 break;
             case '\'':                           // an ASCII character with '.'
                 val = AktLine[ sp - AktUpLine ]; // not capitalized ASCII character
@@ -354,7 +359,7 @@ void TokenizeLine( char *sp ) {
         cp++;
 
         if ( verboseMode >= 3 )
-            switch( typ ) {
+            switch ( typ ) {
             case ILLEGAL:
                 MSG( 3, "ILLEGAL\n" );
                 break;
